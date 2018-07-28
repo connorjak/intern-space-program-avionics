@@ -1,4 +1,4 @@
-#include <SPI.h>  
+#include <SPI.h>
 #include <Pixy.h>
 #include <Wire.h>
 #include <Servo.h>
@@ -17,7 +17,7 @@ const int colorG = 0;      //green
 const int colorB = 0;      //blue
 
 
-Pixy pixy; // This is the main Pixy object 
+Pixy pixy; // This is the main Pixy object
 
 int servoLeftPin = 9;      //digital pin 9
 Servo servoLeft;          //create servo
@@ -54,10 +54,10 @@ void setup() {
   //    servo check
   //    Pixy check
   //    commincation_handshake();
-  //         arduino to pi check; transciever check; 
+  //         arduino to pi check; transciever check;
   //Set_state_based_on_pass_fail();
-  
-  
+
+
     pi_go();
     initialize();
     diagnostic();
@@ -198,7 +198,7 @@ void initialize(){
   pinMode(ROTARY_ANGLE_SENSOR, INPUT);
   servoLeft.attach(servoLeftPin);
   servoRight.attach(servoRightPin);
-  
+
   //Serial.begin(115200);
   //Serial.print("Starting...\n");
   pixy.init();
@@ -209,7 +209,7 @@ void diagnostic(){
     Serial.println(F("Testing device connections..."));
     Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
   //PI to Nano Handshake
-  
+
   // wait for ready
     Serial.println(F("\nSend any character to begin DMP programming and demo: "));
     while (Serial.available() && Serial.read()); // empty buffer
@@ -220,3 +220,24 @@ void diagnostic(){
 void dmpDataReady() {
     mpuInterrupt = true;
 }
+
+
+/*
+ARDUINO GOTO ---
+
+label:
+
+goto label; // sends program flow to the label
+
+Example Code
+
+for(byte r = 0; r < 255; r++){
+    for(byte g = 255; g > 0; g--){
+        for(byte b = 0; b < 255; b++){
+            if (analogRead(0) > 250){ goto bailout;}
+            // more statements ...
+        }
+    }
+}
+
+bailout:*/
