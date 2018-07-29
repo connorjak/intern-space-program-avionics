@@ -11,7 +11,6 @@ before_install:
 
 install:
       - ln -s $PWD /usr/local/share/arduino/libraries/Adafruit_FONA
-      - arduino --install-library "Adafruit SleepyDog Library,Adafruit MQTT Library"
       - pip3 install pylint
 
     script:
