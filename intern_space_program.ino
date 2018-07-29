@@ -6,26 +6,64 @@
 #include "MPU6050_6Axis_MotionApps20.h"
 #include <string.h>
 
+/* NOTE: Use "volatile" prefix for values directly modified inside an interrupt.
+*  do not set variables inside an interrupt unless they have this volatile prefix.
+*/
+
 
 #define ADC_REF 5 //5v
 
 // PINS
 #define ROTARY_ANGLE_SENSOR A0 //Analog pin 0
 #define BOOSTER_IIST        A6 //TODO update to reflect actual pin
+#define SERVO_LEFT           9 //digital pin 9
+#define SERVO_RIGHT         10 //digital pin 10
+#define SERVO_BACK          11 //digital pin 10
 
 // STATE THRESHOLD PARAMETERS //TODO tune all
-#define LAUNCH_ACCEL     980.0 // m/s^2, the forward acceleration at which launch definitely happened
-#define SEP_ACCEL       1200.0 // m/s^2, the forward acceleration at which separation definitely happened
-#define MIN_SEP_ALTITUDE 152.4 // meters, 500 ft, minumum altitude at which separation would possibly happen
+//0 SCRUB
+#define ELEVATOR_DEFLECT_0       0.0 //degrees
+#define AILERON_DEFLECT_0        0.0 //degrees
+//1 GROUND_READY
+#define ELEVATOR_DEFLECT_1       0.0 //degrees
+#define AILERON_DEFLECT_1        0.0 //degrees
+#define LAUNCH_ACCEL           980.0 // m/s^2, the forward acceleration at which launch definitely happened
+//2 BOOST
+#define ELEVATOR_DEFLECT_2       0.0 //degrees
+#define AILERON_DEFLECT_2        0.0 //degrees
+#define SEP_ACCEL             1200.0 // m/s^2, the forward acceleration at which separation definitely happened
+#define MIN_SEP_ALTITUDE       152.4 // meters, 500 ft, minumum altitude at which separation would possibly happen
+//3 SEPARATE
+#define ELEVATOR_DEFLECT_3      -1.0 //degrees
+#define AILERON_DEFLECT_3        0.0 //degrees
+//4 STABILIZE
+#define DEFAULT_PITCH_GOAL_4   -20.0 //degrees
+#define DEFAULT_ROLL_GOAL_4      0.0 //degrees
+#define DEFAULT_AZIMUTH_GOAL_4 270.0 //degrees (WEST)
+//5 SEARCH
+#define DEFAULT_PITCH_GOAL_5   -10.0 //degrees
+#define DEFAULT_ROLL_GOAL_5    -30.0 //degrees
+#define DEFAULT_AZIMUTH_GOAL_5 270.0 //degrees (WEST)
+//6 ORBIT
+#define DEFAULT_PITCH_GOAL_6   -10.0 //degrees
+#define DEFAULT_ROLL_GOAL_6    -30.0 //degrees
+#define DEFAULT_AZIMUTH_GOAL_6 270.0 //degrees (WEST)
+//7 RECOVER_ABORT
+#define DEFAULT_PITCH_GOAL_6    10.0 //degrees
+#define DEFAULT_ROLL_GOAL_6    -30.0 //degrees
+#define DEFAULT_AZIMUTH_GOAL_6 270.0 //degrees (WEST)
+//8 LANDED
+
+
 
 // OTHER
-#define GROVE_VCC  5 //VCC of the grove interface is normally 5v
-#define FULL_ANGLE 300 //full value of the rotary angle is 300 degrees
-#define LOCK   1 //mutux lock
-#define UNLOCK 0 //mutux unlock
-#define BAUD_RATE 115200 //agreed baud rate
-#define MPU_INT_PIN 2 //MPU interrupt pin
-#define TRX_INT_PIN 3 //tranciever interrupt pin
+#define GROVE_VCC            5 //VCC of the grove interface is normally 5v
+#define FULL_ANGLE         300 //full value of the rotary angle is 300 degrees
+#define LOCK                 1 //mutux lock
+#define UNLOCK               0 //mutux unlock
+#define BAUD_RATE       115200 //agreed baud rate
+#define MPU_INT_PIN          2 //MPU interrupt pin
+#define TRX_INT_PIN          3 //tranciever interrupt pin
 
 const int colorR = 255;    //red
 const int colorG = 0;      //green
@@ -39,15 +77,12 @@ bool boosterIIST = true;
 
 // SERVOS
 
-const int servoLeftPin = 9;      //digital pin 9
 Servo servoLeft;          //create servo
 int servoLeftAngle = 0;   // servo position in degrees
 
-const int servoRightPin = 10;   //digital pin 10
 Servo servoRight;          //create servo
 int servoRightAngle = 0;    //servo position in degrees
 
-const int servoBackPin = 11;   //digital pin 10
 Servo servoBack;          //create servo
 int servoBackAngle = 0;    //servo position in degrees
 
@@ -61,6 +96,33 @@ uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount;     // count of all bytes currently in FIFO
 uint8_t fifoBuffer[64]; // FIFO storage buffer
 volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
+
+
+// META FLIGHT VARIABLES
+// These values are more reliable and isolated from the volatile control flight variables.
+// Use these values when TX to ground station.
+
+float currentPitch =   0.0; // degrees, pitch above the horizon
+float currentRoll =    0.0; // degrees, roll left wing above horizon //TODO coordinate system document
+float currentAzimuth = 0.0; // degrees, compass reading from forward of glider
+
+float altimeterDescentRate = 0.0;
+
+// CONTROL FLIGHT VARIABLES
+// These values are meant to be used for RX from ground station and set by autopilot
+// Be cautious to use these values when TX to ground station.
+
+volatile float pitchGoal =       DEFAULT_PITCH_GOAL_4; //commanded pitch goal, degrees, above the horizon
+volatile float rollGoal =        DEFAULT_PITCH_GOAL_4; //commanded roll goal, degrees, left wing above horizon
+volatile float azimuthGoal =     DEFAULT_PITCH_GOAL_4; //commanded azimuth goal, degrees, compass reading for forward
+
+volatile float elevatorDeflect = ELEVATOR_DEFLECT_0;   //commanded elevator deflection, positive is up from wing
+volatile float aileronDeflect =  AILERON_DEFLECT_0;    //commanded aileron deflection, positive is up from right wing
+
+volatile bool explosiveSafetyOn =    true; // must set to false before able to trigger parachute ejection charge
+volatile String fireEjectionCharge = "no"; // must set to exactly "FIRE" to trigger parachute ejection charge
+
+
 
 int STATE;
 bool AUTOSTATE;
@@ -198,7 +260,7 @@ void initialize(){
   //enable interrupt attach
   attachInterrupt(digitalPinToInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
   //    communications setup
-  
+
   //MPU Setup
     mpu.initialize();
     // load and configure the DMP
@@ -231,9 +293,9 @@ void initialize(){
 
   //Servo Setup
   pinMode(ROTARY_ANGLE_SENSOR, INPUT);
-  servoLeft.attach(servoLeftPin);
-  servoRight.attach(servoRightPin);
-  servoBack.attach(servoBackPin);
+  servoLeft.attach(SERVO_LEFT);
+  servoRight.attach(SERVO_RIGHT);
+  servoBack.attach(SERVO_BACK);
 
   //Pixy Initialization
   pixy.init();
@@ -241,9 +303,9 @@ void initialize(){
 
 void diagnostic(){
   int error_sum = 0;
-  
+
   //Tranciever Handshake
-  
+
   //PI to nano handshake
   //send "handshake" to pi and wait to recieve "sure"
   //if sure not recieved, wait 100 ms then send again
@@ -264,15 +326,15 @@ void diagnostic(){
     //OUTPUT to TRANSCIEVER ERROR
     error_sum = error_sum + 1;
   }
-  
-  //MPU check 
+
+  //MPU check
   // verify MPU connection
   if(!mpu.testConnection()){
     ////OUTPUT to TRANSCIEVER ERROR
     error_sum = error_sum + 1;
   }
   //Verify MPU acc and gryo readings
-    
+
 }
 
 void dmpDataReady() {
