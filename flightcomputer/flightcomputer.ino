@@ -102,7 +102,8 @@
 
 
 
-
+#define SERVO_START         90 // Starting Angle
+#define SERVO_RANGE         40 //Max range of servos
 // *** VARIABLES ***************************************************************
 
 Pixy pixy; // This is the main Pixy object
@@ -112,12 +113,14 @@ bool boosterIIST = true;
 
 // *** SERVOS ***
 Servo servoLeft;          //create servo
-int servoLeftAngle = 0;   // servo position in degrees
+int servoLeftAngle = SERVO_START;   // servo position in degrees
+
 Servo servoRight;          //create servo
-int servoRightAngle = 0;   //servo position in degrees
+int servoRightAngle = SERVO_START;    //servo position in degrees
 
 Servo servoBack;          //create servo
-int servoBackAngle = 0;   //servo position in degrees
+int servoBackAngle = SERVO_START;    //servo position in degrees
+
 
 // *** MPU ***
 
@@ -353,7 +356,6 @@ void initialize(){
   Wire.endTransmission(true);
 
   //Servo Setup
-  pinMode(ROTARY_ANGLE_SENSOR, INPUT);//TODO what does this do?
   servoLeft.attach(SERVO_LEFT);
   servoRight.attach(SERVO_RIGHT);
   servoBack.attach(SERVO_BACK);
@@ -362,7 +364,55 @@ void initialize(){
   pixy.init();
 }
 
-bool diagnostic(){
+void servo_sweep(){
+  int pos = SERVO_START;
+  for(pos; pos <= (SERVO_START+SERVO_RANGE); pos += 1){//Sweep up to max range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(25);
+  }
+  delay(500);
+  for(pos; pos >= (SERVO_START-SERVO_RANGE); pos -= 1){ //Sweep down to min range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(25);
+  }
+  delay(500);
+  for(pos; pos <= (SERVO_START+SERVO_RANGE); pos += 1){//Sweep up to max range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(25);
+  }
+  delay(500);
+  for(pos; pos >= (SERVO_START); pos -= 1){ //Sweep down to start
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(15);
+  }
+  delay(500);
+  for(pos; pos >= (SERVO_START-SERVO_RANGE); pos -= 1){ //Sweep down to min range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(15);
+  }
+  delay(500);
+  for(pos; pos <= (SERVO_START); pos += 1){//Sweep up to start
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(15);
+  }
+  servoRightAngle = pos;
+  servoLeftAngle = pos;
+  servoBackAngle = pos;
+}
+
+void diagnostic(){
   int error_sum = 0;
 
   //Tranciever Handshake
@@ -375,12 +425,11 @@ bool diagnostic(){
   char target[4] = "sure"
   Serial.println("handshake"); //sends impetus for handshake
   Serial.flush(); //waits for outgoing stream to complete
-  while (packet_loss < 3){
+  for(packet_loss; packet_loss < 3; packet_loss += 1){
     //breaks from loop if 'sure' is found
     if (Serial.find(target)){
       break;
     }
-    packet_loss = packet_loss + 1;
   }
   //3 errors occured
   if (packet_loss == 3){
@@ -397,6 +446,19 @@ bool diagnostic(){
   //Verify MPU acc and gryo readings
 
   //Servo 'Dance'
+  servo_sweep();
+  if (servoRightAngle != servoRight.read()){
+    //OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_START)
+    error_sum = error_sum + 1;
+  }
+  if (servoLeftAngle != servoLeft.read()){
+    //OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_START)
+    error_sum = error_sum + 1;
+  }
+  if (servoBackAngle != servoBack.read()){
+    //OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_START)
+    error_sum = error_sum + 1;
+  }
 
   //Final Error Output
   if (error_sum == 0){
