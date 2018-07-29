@@ -191,6 +191,8 @@ void setup() {
   //Set_state_based_on_pass_fail();
 
   Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
+  if (!driver.init())
+         //SHIT: ERROR HERE BUT NO SETUP COMMUNICATIONS YET -> MAYBE JUMP TO EXPEDITED TRANSCIEVER SETUP TO REPORT ERROR?
   pi_go();
   initialize();
   diagnosticPass = diagnostic();
@@ -424,11 +426,10 @@ bool diagnostic(){
   // resend 3 times before throwing error
   int packet_loss = 0;
   char target[4] = "sure";
-  Serial.println("handshake"); //sends impetus for handshake
-  Serial.flush(); //waits for outgoing stream to complete
   for(packet_loss; packet_loss < 3; packet_loss += 1){
-    //breaks from loop if 'sure' is found
-    if (Serial.find(target)){
+    Serial.println("handshake"); //sends impetus for handshake
+    Serial.flush(); //waits for outgoing stream to complete
+    if (Serial.find(target)){ //breaks from loop if 'sure' is found
       break;
     }
   }
