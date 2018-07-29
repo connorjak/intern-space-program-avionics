@@ -1,0 +1,180 @@
+import tkinter as tk
+import multiprocessing
+import serial
+import time
+from multiprocessing.managers import BaseManager
+
+
+# pylint: disable=C0111
+
+accData = [1, 2, 3]
+gyroData = [4, 5, 6]
+magData = [7, 8, 9]
+altitude = 10
+temp = 11
+pres = 12
+
+
+class SharedData():
+
+    def __init__(self):
+        self._data = []
+
+    def update(self, value):
+        self._data = value
+
+    def get_value(self):
+        return self._data
+
+class SerCotrol(multiprocessing.Process):
+
+    def run(self):
+        ser = serial.Serial('COM4', 9600)
+        while not self.exit.is_set():
+            s = ser.write(b'h')
+            s = ser.read(10)
+            s = s.decode("utf-8")
+            x = s.split('\t')
+            for i, num in enumerate(x):
+                try:
+                    x[i] = int(float(num))
+                except ValueError:
+                    pass
+            SharedData().update(x)
+
+        ser.close()
+
+    def __init__(self, shared):
+        self.exit = multiprocessing.Event()
+        multiprocessing.Process.__init__(self)
+        self.shared = shared
+
+    def shutdown(self):
+        print("Shutdown initiated")
+        self.exit.set()
+
+
+class GUI():
+
+    def __init__(self, master):
+
+        master.title("A simple GUI")
+
+        self.num = 0
+        self.labelNum = tk.IntVar()
+        self.labelNum.set(self.num)
+        self.label = tk.Label(master, textvariable=self.labelNum)
+        self.accString = tk.StringVar()
+        self.accString.set('Accleration\nX: %.5f\nY: %.5f\nZ: %.5f' %
+                           (accData[0], accData[1], accData[2]))
+        self.gyroString = tk.StringVar()
+        self.gyroString.set('Gyros\nX: %.5f\nY: %.5f\nZ: %.5f' %
+                            (gyroData[0], gyroData[1], gyroData[2]))
+        self.magString = tk.StringVar()
+        self.magString.set('Magnetometer\nX: %.5f\nY: %.5f\nZ: %.5f' % (
+            magData[0], magData[1], magData[2]))
+        self.presString = tk.StringVar()
+        self.presString.set('Pressure: \n%.5f' % (pres))
+        self.tempString = tk.StringVar()
+        self.tempString.set('Tempature: \n%.5f' % (temp))
+        self.altString = tk.StringVar()
+        self.altString.set('Alititude: \n%.5f' % (altitude))
+
+        self.groundMode = tk.Button(
+            master, text='GROUND\nREADY', height=10, width=20)
+        self.launch = tk.Button(master, text='BOOST', width=20, height=10)
+        self.seperate = tk.Button(
+            master, text='SEPARATE', height=10, width=20)
+        self.stabilize = tk.Button(
+            master, text='STABILIZE', height=10, width=20)
+        self.search = tk.Button(master, text='SEARCH', height=10, width=20)
+        self.orbit = tk.Button(
+            master, text='ORBIT', height=10, width=20)
+        self.landed = tk.Button(master, text='LANDED', height=10, width=20)
+        self.abort_button = tk.Button(
+            master, text="ABORT!", command=self.abort, height=10, background='red')
+        self.close_button = tk.Button(master, text="Close", command=self.quit)
+        self.accDisp = tk.Label(
+            master, textvariable=self.accString, font=("TkDefaultFont", 10))
+        self.gyroDisp = tk.Label(
+            master, textvariable=self.gyroString, font=("TkDefaultFont", 10))
+        self.magDisp = tk.Label(
+            master, textvariable=self.magString, font=("TkDefaultFont", 10))
+        self.presDisp = tk.Label(
+            master, textvariable=self.presString, font=("TkDefaultFont", 10))
+        self.tempDisp = tk.Label(
+            master, textvariable=self.tempString, font=("TkDefaultFont", 10))
+        self.altDisp = tk.Label(
+            master, textvariable=self.altString, font=("TkDefaultFont", 10))
+        self.startCom = tk.Button(
+            master, text="Start Communication", command=self.startComProcess)
+
+        self.label.grid(row=0, sticky=(tk.E, tk.W))
+        self.groundMode.grid(row=1, sticky=(tk.E, tk.W, tk.S))
+        self.launch.grid(row=1, column=1, sticky=(tk.E, tk.W, tk.S))
+        self.seperate.grid(row=1, column=2, sticky=(tk.E, tk.W, tk.S))
+        self.stabilize.grid(row=1, column=3, sticky=(tk.E, tk.W, tk.S))
+        self.search.grid(row=1, column=4,  sticky=(tk.E, tk.W, tk.S))
+        self.orbit.grid(row=1, column=5,  sticky=(tk.E, tk.W, tk.S))
+        self.landed.grid(row=1, column=6, sticky=(tk.E, tk.W, tk.S))
+        self.abort_button.grid(row=2, columnspan=7, sticky=(tk.E, tk.W, tk.N))
+        self.close_button.grid(row=3, columnspan=7)
+        self.startCom.grid(row=4, columnspan=7)
+        self.accDisp.grid(row=5, column=0)
+        self.gyroDisp.grid(row=5, column=1)
+        self.magDisp.grid(row=5, column=2)
+        self.presDisp.grid(row=5, column=3)
+        self.tempDisp.grid(row=5, column=4)
+        self.altDisp.grid(row=6, column=3)
+
+    @classmethod
+    def quit(self):
+        process.shutdown()
+        print(process.is_alive())
+        root.quit()
+
+    @classmethod
+    def abort(self):
+        print(SharedData().get_value())
+        print("ABORTING!")
+
+    @classmethod
+    def startComProcess(self):
+        getDataFromArduino()
+        #process.start()
+
+    def getData(self):
+        pass
+
+def getDataFromArduino():
+    ser = serial.Serial('COM4', 9600)
+    while not self.exit.is_set():
+        s = ser.write(b'h')
+        s = ser.read(10)
+        s = s.decode("utf-8")
+        x = s.split('\t')
+        for i, num in enumerate(x):
+            try:
+                x[i] = int(float(num))
+            except ValueError:
+                pass
+        SharedData().update(x)
+
+
+class ShareManager(BaseManager):
+    pass
+
+
+ShareManager.register('SharedData', BaseManager)
+
+if __name__ == "__main__":
+    # ShareManager.register(BaseManager)
+    manager = ShareManager()
+    manager.start()
+    shared = manager.SharedData()
+    process = SerCotrol(shared)
+    root = tk.Tk()
+    root.rowconfigure((1), weight=1, uniform='test')
+    root.columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
+    GUI = GUI(root)
+    root.mainloop()

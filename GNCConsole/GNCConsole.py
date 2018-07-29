@@ -36,6 +36,8 @@ class flightState(Enum):
 class GUI():
     """User Interface class."""
 
+    currState = flightState.SCRUB
+
     def __init__(self, master):
         """Run on GUI Initialization."""
         # These variable are set in other methods, they are defined here for
@@ -123,9 +125,9 @@ class GUI():
         self.abort_button.grid(row=2, columnspan=8, sticky=(tk.E, tk.W, tk.N))
         self.fileLocation.grid(row=3, columnspan=3, sticky=(tk.E, tk.W))
         self.fileDialogButton.grid(row=3, column=3, sticky=(tk.E, tk.W))
-        self.COMPort.grid(row=4, column=2, sticky=(tk.E, tk.W))
-        self.startCom.grid(row=4, column=3, sticky=(tk.E, tk.W))
-        self.stopCom.grid(row=4, column=4, sticky=(tk.E, tk.W))
+        self.COMPort.grid(row=4, column=2, sticky=(tk.E, tk.W, tk.N, tk.S))
+        self.startCom.grid(row=4, column=3, sticky=(tk.E, tk.W, tk.N, tk.S))
+        self.stopCom.grid(row=4, column=4, sticky=(tk.E, tk.W, tk.N, tk.S))
         self.accDisp.grid(row=5, column=0)
         self.gyroDisp.grid(row=5, column=1)
         self.magDisp.grid(row=5, column=2)
@@ -137,8 +139,12 @@ class GUI():
     def sendflightState(self, sendState):
         """Send the current flight state to the transciever, and thus the rocket."""
         self.ser.write(b's%i' % sendState.value)
+        #self.currState = sendState
+        #self.scrubState.config(relief=tk.SUNKEN)
+
 
     def fileDialogOp(self):
+        """Select the file to write the log to."""
         self.fileLocation.delete(0, tk.END)
         self.fileLocation.insert(0,
                                  filedialog.asksaveasfilename(
