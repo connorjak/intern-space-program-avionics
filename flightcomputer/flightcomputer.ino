@@ -21,6 +21,8 @@
 #define SERVO_LEFT           9 //Digital pin 9
 #define SERVO_RIGHT         10 //Digital pin 10
 #define SERVO_BACK          11 //Digital pin 10
+#define MPU_INT_PIN          2 //MPU interrupt pin
+#define TRX_INT_PIN          3 //tranciever interrupt pin
 
 // STATE THRESHOLD PARAMETERS //TODO tune all
 //0 SCRUB
@@ -64,8 +66,6 @@
 #define LOCK                 1 //mutux lock
 #define UNLOCK               0 //mutux unlock
 #define BAUD_RATE       115200 //agreed baud rate
-#define MPU_INT_PIN          2 //MPU interrupt pin
-#define TRX_INT_PIN          3 //tranciever interrupt pin
 
 //const int colorR = 255;    //red //NOTE: removed LCD stuff
 //const int colorG = 0;      //green
@@ -260,7 +260,7 @@ void initialize(){
 
   //Transciever Setup
   //enable interrupt attach
-  attachInterrupt(digitalPinToInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
   //    communications setup
 
   //MPU Setup
@@ -337,6 +337,13 @@ void diagnostic(){
   }
   //Verify MPU acc and gryo readings
 
+  //Servo 'Dance'
+  
+  //Final Error Output
+  if (error_sum == 0){
+    //OUTPUT to TRANSCIEVER: No errors, all clear. READY TO LAUNCH!
+  }
+
 }
 
 void dmpDataReady() {
@@ -346,7 +353,6 @@ void dmpDataReady() {
 void trans_interrupt(){
   //get transciver data
   STATE = sent_string
-  goto loop_start;
 }
 /*
 ARDUINO GOTO ---

@@ -19,6 +19,8 @@
 #define SERVO_LEFT           9 //digital pin 9
 #define SERVO_RIGHT         10 //digital pin 10
 #define SERVO_BACK          11 //digital pin 10
+#define MPU_INT_PIN          2 //MPU interrupt pin
+#define TRX_INT_PIN          3 //tranciever interrupt pin
 
 // STATE THRESHOLD PARAMETERS //TODO tune all
 //0 SCRUB
@@ -62,8 +64,6 @@
 #define LOCK                 1 //mutux lock
 #define UNLOCK               0 //mutux unlock
 #define BAUD_RATE       115200 //agreed baud rate
-#define MPU_INT_PIN          2 //MPU interrupt pin
-#define TRX_INT_PIN          3 //tranciever interrupt pin
 
 const int colorR = 255;    //red
 const int colorG = 0;      //green
@@ -122,8 +122,6 @@ volatile float aileronDeflect =  AILERON_DEFLECT_0;    //commanded aileron defle
 volatile bool explosiveSafetyOn =    true; // must set to false before able to trigger parachute ejection charge
 volatile String fireEjectionCharge = "no"; // must set to exactly "FIRE" to trigger parachute ejection charge
 
-
-
 int STATE;
 bool AUTOSTATE;
 
@@ -143,7 +141,7 @@ void setup() {
   //    Pixy check
   //    commincation_handshake();
   //         arduino to pi check; transciever check;
-  //Set_state_based_on_pass_fail();
+  //    Set_state_based_on_pass_fail();
 
     Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
     pi_go();
@@ -258,7 +256,7 @@ void initialize(){
 
   //Transciever Setup
   //enable interrupt attach
-  attachInterrupt(digitalPinToInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
   //    communications setup
 
   //MPU Setup
@@ -335,6 +333,12 @@ void diagnostic(){
   }
   //Verify MPU acc and gryo readings
 
+  //Servo 'Dance'
+  
+  //Final Error Output
+  if (error_sum == 0){
+    //OUTPUT to TRANSCIEVER: No errors, all clear. READY TO LAUNCH!
+  }
 }
 
 void dmpDataReady() {
@@ -343,8 +347,7 @@ void dmpDataReady() {
 
 void trans_interrupt(){
   //get transciver data
-  STATE = sent_string
-  goto loop_start;
+  STATE = parsed_sent_string
 }
 /*
 ARDUINO GOTO ---
