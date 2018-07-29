@@ -5,11 +5,11 @@
 * Connor Jakubik, rankner7, olenakotaco, Marsfan, Bluthman2
 */
 #include <SPI.h>
-#include "Pixy/Pixy.h"
 #include <Wire.h>
 #include <Servo.h>
-#include "I2Cdev/I2Cdev.h"
-#include "MPU6050/MPU6050_6Axis_MotionApps20.h"
+#include "Pixy.h"
+#include "I2Cdev.h"
+#include "MPU6050_6Axis_MotionApps20.h"
 
 //using namespace std; //could
 
@@ -22,10 +22,9 @@
 // *** CONSTANT DEFINITIONS ****************************************************
 
 // *** ELECTRICAL ***
-//#define ADC_REF 5 //5v //NOTE: removed potentiometer stuff
+// define specific voltages and stuff here
 
 // *** PINS ***
-#define ROTARY_ANGLE_SENSOR       A0 //Analog  pin 0   //TODO What does this do?
 #define BOOSTER_IIST              A6 //Analog  pin 6  //TODO update to reflect actual pin
 #define I2C_SCL                   -1 //Digital pin #  //TODO update to reflect actual pin
 #define I2C_SDA                   -1 //Digital pin #  //TODO update to reflect actual pin
@@ -88,21 +87,15 @@
 #define TIME_BETWEEN_BEACON     10.0 //seconds, time between signal pulses (if we do an RF locator to assist in recovery)
 
 // *** OTHER ***
-//#define GROVE_VCC            5 //VCC of the grove interface is normally 5v //NOTE: removed potentiometer stuff
-//#define FULL_ANGLE         300 //full value of the rotary angle is 300 degrees
-#define SETUP_WAIT_TIME         1000 //milliseconds
 #define LOCK                       1 //mutux lock
 #define UNLOCK                     0 //mutux unlock
+#define SETUP_WAIT_TIME         1000 //milliseconds
 #define BAUD_RATE             115200 //agreed baud rate
-
-//const int colorR =             255;    //red //NOTE: removed LCD stuff
-//const int colorG =               0;      //green
-//const int colorB =               0;      //blue
-
+#define SERVO_START               90 // Starting Angle
+#define SERVO_MAX                130 // Artifical max for servos (mech. limits TBD)
+#define SERVO_MIN                 50 // Artifical min for servos (mech. limits TBD)
 
 
-#define SERVO_START         90 // Starting Angle
-#define SERVO_RANGE         40 //Max range of servos
 // *** VARIABLES ***************************************************************
 
 Pixy pixy; // This is the main Pixy object
@@ -141,8 +134,8 @@ float currentPitch =   0.0; // degrees, pitch above the horizon
 float currentRoll =    0.0; // degrees, roll left wing above horizon //TODO coordinate system document
 float currentAzimuth = 0.0; // degrees, compass reading from forward of glider
 
-float altitude =  -10000.0;
-float altimeterDescentRate = 0.0;
+float altitude =  -10000.0; // meters
+float altitudeRate = 0.0; // m/s
 
 float accelForward =   0.0; // acceleration in forward direction, no gravity
 float accelGliderFrame[3]; // acceleration in glider frame, no gravity
@@ -196,16 +189,17 @@ void setup() {
   //         arduino to pi check; transciever check;
   //Set_state_based_on_pass_fail();
 
-    Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
-    pi_go();
-    initialize();
-    diagnosticPass = diagnostic();
-    STATE = (int)diagnosticPass;
+  Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
+  pi_go();
+  initialize();
+  diagnosticPass = diagnostic();
+  STATE = (int)diagnosticPass; // 0 for fail, 1 for success
 }
+
 
 void loop() {
   // put your main code here, to run repeatedly:
-loop_start: collectData();
+loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
 
   switch(STATE){
   //0 SCRUB
@@ -231,7 +225,6 @@ loop_start: collectData();
       // Do final calibration
 
       if (AUTOSTATE){
-
         // Sense Launch Sensor Fusion
         if(false/*accelForward>LAUNCH_ACCEL && altitude>ALTIMETER_UNCERTAINTY*/){ //TODO
             STATE = 2; //BOOST
@@ -297,6 +290,7 @@ loop_start: collectData();
   }
 }
 
+
 void mutux(int lock){
   // Used to change whether or not to allow interrupts
   if (lock == 1){
@@ -307,12 +301,14 @@ void mutux(int lock){
   }
 }
 
+
 void pi_go(){
   // wait for ready
     while (Serial.available() && Serial.read()); // empty buffer
     while (!Serial.available());                 // wait for data
     while (Serial.available() && Serial.read()); // empty buffer again
 }
+
 
 void initialize(){
   //    MPU setup
@@ -328,7 +324,7 @@ void initialize(){
     mpu.initialize();
     // load and configure the DMP
     devStatus = mpu.dmpInitialize();
-    // supply your own gyro offsets here, scaled for min sensitivity
+    // supply your own gyro offsets here, scaled for min sensitivity //TODO tune these?
     mpu.setXGyroOffset(220);
     mpu.setYGyroOffset(76);
     mpu.setZGyroOffset(-85);
@@ -346,13 +342,14 @@ void initialize(){
         packetSize = mpu.dmpGetFIFOPacketSize();
     } else {
         // ERROR!
-        //REPORT ERROR HERE OVER TRANSCIVER
+        //TODO REPORT ERROR HERE OVER TRANSCIVER
     }
-  Wire.begin();
-  Wire.beginTransmission(MPU_ADDR);
-  Wire.write(0x6B);  // PWR_MGMT_1 register
-  Wire.write(0);     // set to zero (wakes up the MPU-6050)
-  Wire.endTransmission(true);
+    Wire.begin();
+    Wire.beginTransmission(MPU_ADDR);
+    Wire.write(0x6B);  // PWR_MGMT_1 register
+    Wire.write(0);     // set to zero (wakes up the MPU-6050)
+    Wire.endTransmission(true);
+  //End MPU Setup
 
   //Servo Setup
   servoLeft.attach(SERVO_LEFT);
@@ -363,23 +360,24 @@ void initialize(){
   pixy.init();
 }
 
+
 void servo_sweep(){
   int pos = SERVO_START;
-  for(pos; pos <= (SERVO_START+SERVO_RANGE); pos += 1){//Sweep up to max range
+  for(pos; pos <= (SERVO_MAX); pos += 1){//Sweep up to max range
     servoRight.write(pos);
     servoLeft.write(pos);
     servoBack.write(pos);
     delay(25);
   }
   delay(500);
-  for(pos; pos >= (SERVO_START-SERVO_RANGE); pos -= 1){ //Sweep down to min range
+  for(pos; pos >= (SERVO_MIN); pos -= 1){ //Sweep down to min range
     servoRight.write(pos);
     servoLeft.write(pos);
     servoBack.write(pos);
     delay(25);
   }
   delay(500);
-  for(pos; pos <= (SERVO_START+SERVO_RANGE); pos += 1){//Sweep up to max range
+  for(pos; pos <= (SERVO_MAX); pos += 1){//Sweep up to max range
     servoRight.write(pos);
     servoLeft.write(pos);
     servoBack.write(pos);
@@ -393,7 +391,7 @@ void servo_sweep(){
     delay(15);
   }
   delay(500);
-  for(pos; pos >= (SERVO_START-SERVO_RANGE); pos -= 1){ //Sweep down to min range
+  for(pos; pos >= (SERVO_MIN); pos -= 1){ //Sweep down to min range
     servoRight.write(pos);
     servoLeft.write(pos);
     servoBack.write(pos);
@@ -411,17 +409,20 @@ void servo_sweep(){
   servoBackAngle = pos;
 }
 
-void diagnostic(){
+
+bool diagnostic(){
   int error_sum = 0;
+  // int error_sum is used as a bitset, where, when read as a binary number, it
+  // tells you exactly where your errors were, no matter the combination.
 
   //Tranciever Handshake
 
-  //PI to nano handshake
-  //send "handshake" to pi and wait to recieve "sure"
-  //if sure not recieved, wait 100 ms then send again
-  //resend 3 times before throwing error\
+  // *** PI to nano handshake
+  // send "handshake" to pi and wait to recieve "sure"
+  // if sure not recieved, wait 100 ms then send again
+  // resend 3 times before throwing error
   int packet_loss = 0;
-  char target[4] = "sure"
+  char target[4] = "sure";
   Serial.println("handshake"); //sends impetus for handshake
   Serial.flush(); //waits for outgoing stream to complete
   for(packet_loss; packet_loss < 3; packet_loss += 1){
@@ -433,57 +434,66 @@ void diagnostic(){
   //3 errors occured
   if (packet_loss == 3){
     //OUTPUT to TRANSCIEVER ERROR
-    error_sum = error_sum + 1;
+    error_sum = error_sum + 1; //1s place
   }
 
   //MPU check
   // verify MPU connection
   if(!mpu.testConnection()){
     ////OUTPUT to TRANSCIEVER ERROR
-    error_sum = error_sum + 1;
+    error_sum = error_sum + 2; //2s place
   }
   //Verify MPU acc and gryo readings
 
   //Servo 'Dance'
   servo_sweep();
-  if (servoRightAngle != servoRight.read()){
-    //OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_START)
-    error_sum = error_sum + 1;
+  if (servoRightAngle != servoRight.read()){ //TODO can we actually read from these servos?
+    //TODO OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_START)
+    error_sum = error_sum + 4; //4s place
   }
   if (servoLeftAngle != servoLeft.read()){
-    //OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_START)
-    error_sum = error_sum + 1;
+    //TODO OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_START)
+    error_sum = error_sum + 8; //8s place
   }
   if (servoBackAngle != servoBack.read()){
-    //OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_START)
-    error_sum = error_sum + 1;
+    //TODO OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_START)
+    error_sum = error_sum + 16; //16s place
   }
 
   //Final Error Output
   if (error_sum == 0){
-    //OUTPUT to TRANSCIEVER: No errors, all clear. READY TO LAUNCH!
+    //TODO OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
     return true;
+  }
+  else{
+    //TODO OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). Error code: (error_sum in binary). SCRUB!
+    return false;
   }
   return false;
 }
 
+
 void dmpDataReady() {
     mpuInterrupt = true;
 }
+
 
 void trans_interrupt(){
   //TODO get transciver data
   //STATE = sent_string;
 }
 
+
 float setBarometerZero(){
   //TODO resets the barometer to zero and returns the pressure value
   return -1.0f;
 }
 
+
 void collectData(){
   //TODO Populate the META FLIGHT VARIABLES with values from the volatile sets
 }
+
 
 /*
 ARDUINO GOTO ---
