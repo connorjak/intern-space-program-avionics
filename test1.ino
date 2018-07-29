@@ -5,7 +5,7 @@
 //Grove components I2C addresses are here: http://wiki.seeedstudio.com/I2C_And_I2C_Address_of_Seeed_Product/
 //Learned how to make bus here: https://www.youtube.com/watch?v=QQLfzlPGjjE
 
-#include <SPI.h>  
+#include <SPI.h>
 #include <Pixy.h>
 #include<Wire.h>
 #include "rgb_lcd.h"
@@ -25,7 +25,7 @@ const int colorB = 0;      //blue
 int modecounter = 0;       //different modes display different data on LCD
 
 
-Pixy pixy; // This is the main Pixy object 
+Pixy pixy; // This is the main Pixy object
 
 int servoLeftPin = 9;      //digital pin 9
 Servo servoLeft;          //create servo
@@ -50,9 +50,9 @@ void setup(){
 
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
-  
+
   lcd.setRGB(colorR, colorG, colorB);
-  
+
   // Print a message to the LCD.
   lcd.print("hello!");
 
@@ -60,7 +60,7 @@ void setup(){
 
   servoLeft.attach(servoLeftPin);
   servoRight.attach(servoRightPin);
-  
+
   Serial.begin(115200);
   Serial.print("Starting...\n");
   pixy.init();
@@ -72,12 +72,12 @@ void loop(){
   // Call to your function
   writetoservo(45);   //Turn SG90 servo Left to 45 degrees
   // Compute the time it took
-  end = micros(); 
+  end = micros();
   delta = end - start;
   Serial.print(delta);
   Serial.println("ms to send command to servo");
            // Wait 1 second
-  
+
 
   start = micros();
   // Call to your function
@@ -88,7 +88,7 @@ void loop(){
   Serial.print(delta);
   Serial.println("ms to set display mode with potential meter");
             // Wait 1 second
-  
+
 
  start = micros();
   // Call to your function
@@ -125,7 +125,7 @@ void loop(){
 
 
 void writetoservo(int x){
-  servoLeft.write(x); 
+  servoLeft.write(x);
 }
 
 
@@ -136,38 +136,38 @@ void setmodecounter(){
   float degrees = (voltage*FULL_ANGLE)/GROVE_VCC;
   if(degrees > 0 and degrees < 20)
   {
-    modecounter = 0; 
+    modecounter = 0;
   }
   if(degrees > 20 and degrees < 50)
   {
-    modecounter = 1; 
+    modecounter = 1;
   }
   if(degrees > 50 and degrees < 80)
   {
-    modecounter = 2; 
+    modecounter = 2;
   }
   if(degrees > 80 and degrees < 110)
   {
-    modecounter = 3; 
+    modecounter = 3;
   }
 }
 
 void detectobjectwithcamera(){
-   
+
   static int i = 0;
   int j;
   uint16_t blocks;
-  char buf[32]; 
-  
+  char buf[32];
+
   // grab blocks!
   blocks = pixy.getBlocks();
-  
+
   // If there are detect blocks, print them!
   if (blocks)
   {
     i++;
-    
-    
+
+
     if (i%10==0)
     {
       sprintf(buf, "Detected %d:\n", blocks);
@@ -183,9 +183,9 @@ void detectobjectwithcamera(){
           lcd.print("Pixy");
           lcd.setCursor(0,2);
           //sprintf(buf, "", pixy.blocks[j]);
-          lcd.print(pixy.blocks[j].width); 
+          lcd.print(pixy.blocks[j].width);
           lcd.print(",");
-          lcd.print(pixy.blocks[j].height); 
+          lcd.print(pixy.blocks[j].height);
           pixy.blocks[j].print();
         }
       }
@@ -198,7 +198,7 @@ void readgyro(){
   Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_addr,14,true);  // request a total of 14 registers
-  AcX=Wire.read()<<8|Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)     
+  AcX=Wire.read()<<8|Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)
   AcY=Wire.read()<<8|Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
   AcZ=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
   Tmp=Wire.read()<<8|Wire.read();  // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
@@ -220,7 +220,7 @@ void setlcddata(){
     lcd.print(AcY);
     lcd.print(",");
     lcd.print(AcZ);
-    
+
   }else
   if(modecounter == 1)
   {
@@ -230,7 +230,7 @@ void setlcddata(){
     lcd.print("Temperature");
     lcd.setCursor(0,2);
     lcd.print(Tmp/340.00+36.53);
-    
+
   }
   else
   if(modecounter == 2)
@@ -245,8 +245,6 @@ void setlcddata(){
     lcd.print(GyY);
     lcd.print(",");
     lcd.print(GyZ);
-    
+
   }
 }
-
-
