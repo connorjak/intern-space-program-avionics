@@ -4,6 +4,8 @@
 #include <Servo.h>
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
+#include <string.h>
+
 
 #define ADC_REF 5 //5v
 #define ROTARY_ANGLE_SENSOR A0 //Analog pin 0
@@ -11,6 +13,9 @@
 #define FULL_ANGLE 300 //full value of the rotary angle is 300 degrees
 #define LOCK 1 //mutux lock
 #define UNLOCK 0 //mutux unlock
+#define BAUD_RATE 115200 //agreed baud rate
+#define MPU_INT_PIN 2 //MPU interrupt pin
+#define TRX_INT_PIN 3 //tranciever interrupt pin
 
 const int colorR = 255;    //red
 const int colorG = 0;      //green
@@ -61,7 +66,7 @@ void setup() {
   //         arduino to pi check; transciever check;
   //Set_state_based_on_pass_fail();
 
-    Serial.begin(115200); //baud rate needs to be agreed upon
+    Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
     pi_go();
     initialize();
     diagnostic();
@@ -69,7 +74,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  //collect_data();
+loop_start: collect_data();
 
   switch(STATE){
   //0 SCRUB
@@ -152,7 +157,10 @@ void initialize(){
   //    SPI and I2C setup
 
   //Transciever Setup
-
+  //enable interrupt attach
+  attachInterrupt(digitalPinToInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
+  //    communications setup
+  
   //MPU Setup
     mpu.initialize();
     // load and configure the DMP
@@ -167,7 +175,7 @@ void initialize(){
         // turn on the DMP, now that it's ready
         mpu.setDMPEnabled(true);
         // enable Arduino interrupt detection
-        attachInterrupt(0, dmpDataReady, RISING);
+        attachInterrupt(digitalPinToInterrupt(MPU_INT_PIN), dmpDataReady, RISING);
         mpuIntStatus = mpu.getIntStatus();
         // set our DMP Ready flag so the main loop() function knows it's okay to use it
         dmpReady = true;
@@ -194,24 +202,50 @@ void initialize(){
 }
 
 void diagnostic(){
+  int error_sum = 0;
+  
+  //Tranciever Handshake
+  
   //PI to nano handshake
-
-  // verify connection
-    Serial.println(F("Testing device connections..."));
-    Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
-  //PI to Nano Handshake
-  // wait for ready
-    Serial.println(F("\nSend any character to begin DMP programming and demo: "));
-    while (Serial.available() && Serial.read()); // empty buffer
-    while (!Serial.available());                 // wait for data
-    while (Serial.available() && Serial.read()); // empty buffer again
+  //send "handshake" to pi and wait to recieve "sure"
+  //if sure not recieved, wait 100 ms then send again
+  //resend 3 times before throwing error\
+  int packet_loss = 0;
+  char target[4] = "sure"
+  Serial.println("handshake"); //sends impetus for handshake
+  Serial.flush(); //waits for outgoing stream to complete
+  while (packet_loss < 3){
+    //breaks from loop if 'sure' is found
+    if (Serial.find(target)){
+      break;
+    }
+    packet_loss = packet_loss + 1;
+  }
+  //3 errors occured
+  if (packet_loss == 3){
+    //OUTPUT to TRANSCIEVER ERROR
+    error_sum = error_sum + 1;
+  }
+  
+  //MPU check 
+  // verify MPU connection
+  if(!mpu.testConnection()){
+    ////OUTPUT to TRANSCIEVER ERROR
+    error_sum = error_sum + 1;
+  }
+  //Verify MPU acc and gryo readings
+    
 }
 
 void dmpDataReady() {
     mpuInterrupt = true;
 }
 
-
+void trans_interrupt(){
+  //get transciver data
+  STATE = sent_string
+  goto loop_start;
+}
 /*
 ARDUINO GOTO ---
 
