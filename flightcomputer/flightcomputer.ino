@@ -12,7 +12,7 @@
 #include "MPU6050/MPU6050_6Axis_MotionApps20.h"
 #include <string.h>
 
-using namespace std;
+//using namespace std; //could
 
 
 /* NOTE: Use "volatile" prefix for values directly modified inside an interrupt.
@@ -26,15 +26,18 @@ using namespace std;
 //#define ADC_REF 5 //5v //NOTE: removed potentiometer stuff
 
 // *** PINS ***
-//#define ROTARY_ANGLE_SENSOR A0 //Analog pin 0 //NOTE: removed potentiometer stuff
-#define BOOSTER_IIST        A6 //Analog  pin 6  //TODO update to reflect actual pin
-#define I2C_SCL             -1 //Digital pin #  //TODO update to reflect actual pin
-#define I2C_SDA             -1 //Digital pin #  //TODO update to reflect actual pin
-#define SERVO_LEFT           9 //Digital pin 9
-#define SERVO_RIGHT         10 //Digital pin 10
-#define SERVO_BACK          11 //Digital pin 10
-#define MPU_INT_PIN          2 //MPU interrupt pin
-#define TRX_INT_PIN          3 //tranciever interrupt pin
+#define ROTARY_ANGLE_SENSOR       A0 //Analog  pin 0   //TODO What does this do?
+#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO update to reflect actual pin
+#define I2C_SCL                   -1 //Digital pin #  //TODO update to reflect actual pin
+#define I2C_SDA                   -1 //Digital pin #  //TODO update to reflect actual pin
+#define SERVO_LEFT                 9 //Digital pin 9
+#define SERVO_RIGHT               10 //Digital pin 10
+#define SERVO_BACK                11 //Digital pin 10
+#define MPU_INT_PIN                2 //MPU interrupt pin
+#define TRX_INT_PIN                3 //tranciever interrupt pin
+
+// *** I2C ***
+#define MPU_ADDR             0000000 //I2C Address of MPU //TODO update to reflect actual address
 
 // *** STATE-SPECIFIC PARAMETERS *** //TODO tune all
 //0 SCRUB
@@ -316,7 +319,7 @@ void initialize(){
 
   //Transciever Setup
   //enable interrupt attach
-  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), trans_interrupt, RISING);
   //    communications setup
 
   //MPU Setup
@@ -344,13 +347,13 @@ void initialize(){
         //REPORT ERROR HERE OVER TRANSCIVER
     }
   Wire.begin();
-  Wire.beginTransmission(MPU_addr);
+  Wire.beginTransmission(MPU_ADDR);
   Wire.write(0x6B);  // PWR_MGMT_1 register
   Wire.write(0);     // set to zero (wakes up the MPU-6050)
   Wire.endTransmission(true);
 
   //Servo Setup
-  pinMode(ROTARY_ANGLE_SENSOR, INPUT);
+  pinMode(ROTARY_ANGLE_SENSOR, INPUT);//TODO what does this do?
   servoLeft.attach(SERVO_LEFT);
   servoRight.attach(SERVO_RIGHT);
   servoBack.attach(SERVO_BACK);
@@ -408,18 +411,19 @@ void dmpDataReady() {
 }
 
 void trans_interrupt(){
-  //get transciver data
-  STATE = sent_string
+  //TODO get transciver data
+  //STATE = sent_string;
 }
 
 float setBarometerZero(){
-  //resets the barometer to zero and returns the pressure value
+  //TODO resets the barometer to zero and returns the pressure value
   return -1.0f;
 }
 
 void collectData(){
-  // Populate the META FLIGHT VARIABLES with values from the volatile sets
+  //TODO Populate the META FLIGHT VARIABLES with values from the volatile sets
 }
+
 /*
 ARDUINO GOTO ---
 
