@@ -450,7 +450,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         if(false){
           STATE = 8; // LANDED
           firstTimeThroughState = true;
-        }
+        } 
 
         // Timer Watchdog
         //TODO make this
