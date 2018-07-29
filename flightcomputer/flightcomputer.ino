@@ -2,7 +2,7 @@
 * Autopilot, sensor fusion and TRX computer for the Intern Space Program:
 * Flying Squirrel mission.
 * Contributors:
-* Connor Jakubik, rankner7, olenakotaco, Marsfan, Bluthman2
+* Connor Jakubik, Ronnie Ankner, olenakotaco, Gabe R, Bluthman2
 */
 #include <SPI.h>
 #include <Wire.h>
@@ -10,6 +10,7 @@
 #include "Pixy.h"
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
+#include "LoRa.h"
 
 //using namespace std; //could
 
