@@ -191,8 +191,7 @@ void setup() {
   //Set_state_based_on_pass_fail();
 
   Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
-  if (!driver.init())
-         //SHIT: ERROR HERE BUT NO SETUP COMMUNICATIONS YET -> MAYBE JUMP TO EXPEDITED TRANSCIEVER SETUP TO REPORT ERROR?
+  //driver.init() is Transceiver setup
   pi_go();
   initialize();
   diagnosticPass = diagnostic();
