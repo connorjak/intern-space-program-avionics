@@ -10,7 +10,6 @@ before_install:
 
 
 install:
-      - ln -s $PWD /usr/local/share/arduino/libraries/Adafruit_FONA
       - pip3 install pylint
 
     script:
