@@ -4,7 +4,6 @@
 #include <Servo.h>
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
-#include <string.h>
 
 /* NOTE: Use "volatile" prefix for values directly modified inside an interrupt.
 *  do not set variables inside an interrupt unless they have this volatile prefix.
@@ -66,6 +65,8 @@
 #define LOCK                 1 //mutux lock
 #define UNLOCK               0 //mutux unlock
 #define BAUD_RATE       115200 //agreed baud rate
+#define SERVO_START         90 // Starting Angle
+#define SERVO_RANGE         40 //Max range of servos
 
 //const int colorR = 255;    //red //NOTE: removed LCD stuff
 //const int colorG = 0;      //green
@@ -80,13 +81,13 @@ bool boosterIIST = true;
 // SERVOS
 
 Servo servoLeft;          //create servo
-int servoLeftAngle = 0;   // servo position in degrees
+int servoLeftAngle = SERVO_START;   // servo position in degrees
 
 Servo servoRight;          //create servo
-int servoRightAngle = 0;    //servo position in degrees
+int servoRightAngle = SERVO_START;    //servo position in degrees
 
 Servo servoBack;          //create servo
-int servoBackAngle = 0;    //servo position in degrees
+int servoBackAngle = SERVO_START;    //servo position in degrees
 
 // MPU
 
@@ -260,7 +261,7 @@ void initialize(){
 
   //Transciever Setup
   //enable interrupt attach
-  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN)), trans_interrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), trans_interrupt, RISING);
   //    communications setup
 
   //MPU Setup
@@ -294,13 +295,60 @@ void initialize(){
   Wire.endTransmission(true);
 
   //Servo Setup
-  pinMode(ROTARY_ANGLE_SENSOR, INPUT);
   servoLeft.attach(SERVO_LEFT);
   servoRight.attach(SERVO_RIGHT);
   servoBack.attach(SERVO_BACK);
 
   //Pixy Initialization
   pixy.init();
+}
+
+void servo_sweep(){
+  int pos = SERVO_START;
+  for(pos; pos <= (SERVO_START+SERVO_RANGE); pos += 1){//Sweep up to max range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(25);
+  }
+  delay(500);
+  for(pos; pos >= (SERVO_START-SERVO_RANGE); pos -= 1){ //Sweep down to min range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(25);
+  }
+  delay(500);
+  for(pos; pos <= (SERVO_START+SERVO_RANGE); pos += 1){//Sweep up to max range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(25);
+  }
+  delay(500);
+  for(pos; pos >= (SERVO_START); pos -= 1){ //Sweep down to start
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(15);
+  }
+  delay(500);
+  for(pos; pos >= (SERVO_START-SERVO_RANGE); pos -= 1){ //Sweep down to min range
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(15);
+  }
+  delay(500);
+  for(pos; pos <= (SERVO_START); pos += 1){//Sweep up to start
+    servoRight.write(pos);
+    servoLeft.write(pos);
+    servoBack.write(pos);
+    delay(15);
+  }
+  servoRightAngle = pos;
+  servoLeftAngle = pos;
+  servoBackAngle = pos;
 }
 
 void diagnostic(){
@@ -316,12 +364,11 @@ void diagnostic(){
   char target[4] = "sure"
   Serial.println("handshake"); //sends impetus for handshake
   Serial.flush(); //waits for outgoing stream to complete
-  while (packet_loss < 3){
+  for(packet_loss; packet_loss < 3; packet_loss += 1){
     //breaks from loop if 'sure' is found
     if (Serial.find(target)){
       break;
     }
-    packet_loss = packet_loss + 1;
   }
   //3 errors occured
   if (packet_loss == 3){
@@ -338,6 +385,19 @@ void diagnostic(){
   //Verify MPU acc and gryo readings
 
   //Servo 'Dance'
+  servo_sweep();
+  if (servoRightAngle != servoRight.read()){
+    //OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_START)
+    error_sum = error_sum + 1;
+  }
+  if (servoLeftAngle != servoLeft.read()){
+    //OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_START)
+    error_sum = error_sum + 1;
+  }
+  if (servoBackAngle != servoBack.read()){
+    //OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_START)
+    error_sum = error_sum + 1;
+  }
   
   //Final Error Output
   if (error_sum == 0){
@@ -352,7 +412,7 @@ void dmpDataReady() {
 
 void trans_interrupt(){
   //get transciver data
-  STATE = sent_string
+  //STATE = sent_string;
 }
 /*
 ARDUINO GOTO ---
