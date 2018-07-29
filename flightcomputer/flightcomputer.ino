@@ -1,3 +1,9 @@
+/*flightcomputer.ino
+* Autopilot, sensor fusion and TRX computer for the Intern Space Program:
+* Flying Squirrel mission.
+* Contributors:
+* Connor Jakubik, rankner7, olenakotaco, Marsfan, Bluthman2
+*/
 #include <SPI.h>
 #include "Pixy/Pixy.h"
 #include <Wire.h>
@@ -338,7 +344,7 @@ void diagnostic(){
   //Verify MPU acc and gryo readings
 
   //Servo 'Dance'
-  
+
   //Final Error Output
   if (error_sum == 0){
     //OUTPUT to TRANSCIEVER: No errors, all clear. READY TO LAUNCH!
