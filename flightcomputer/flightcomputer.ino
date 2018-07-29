@@ -10,7 +10,6 @@
 #include <Servo.h>
 #include "I2Cdev/I2Cdev.h"
 #include "MPU6050/MPU6050_6Axis_MotionApps20.h"
-#include <string.h>
 
 //using namespace std; //could
 
@@ -161,7 +160,7 @@ volatile float elevatorDeflect = ELEVATOR_DEFLECT_0;   //commanded elevator defl
 volatile float aileronDeflect =  AILERON_DEFLECT_0;    //commanded aileron deflection, positive is up from right wing
 
 volatile bool explosiveSafetyOn =    true; // must set to false before able to trigger parachute ejection charge
-volatile String fireEjectionCharge = "no"; // must set to exactly "FIRE" to trigger parachute ejection charge
+volatile char fireEjectionCharge[] = "no"; // must set to exactly "FIRE" to trigger parachute ejection charge
 
 
 // *** FLIGHT STATES ***
