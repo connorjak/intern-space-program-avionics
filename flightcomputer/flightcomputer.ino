@@ -1,9 +1,9 @@
 #include <SPI.h>
-#include <Pixy.h>
+#include "Pixy/Pixy.h"
 #include <Wire.h>
 #include <Servo.h>
-#include "I2Cdev.h"
-#include "MPU6050_6Axis_MotionApps20.h"
+#include "I2Cdev/I2Cdev.h"
+#include "MPU6050/MPU6050_6Axis_MotionApps20.h"
 #include <string.h>
 
 /* NOTE: Use "volatile" prefix for values directly modified inside an interrupt.
