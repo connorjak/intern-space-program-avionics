@@ -17,6 +17,7 @@ install:
       - mkdir ~/Arduino
       #- mkdir ~/Arduino/hardware
       - mkdir ~/Arduino/libraries
+      - cp -r $PWD/flightcomputer/libraries/* ~/Arduino/libraries
       - wget http://www.airspayce.com/mikem/arduino/RadioHead/RadioHead-1.85.zip
       - unzip RadioHead-1.85.zip
       - mv RadioHead ~/Arduino/libraries/RadioHead
