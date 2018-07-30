@@ -3,3 +3,5 @@ GNCConsole/multiprocess station
 
 *.csv
 GNCConsole/.imdone/config.json
+
+GNCConsole/Serial\.py
