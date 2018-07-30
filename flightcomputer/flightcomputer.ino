@@ -10,7 +10,7 @@
 #include "Pixy.h"
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
-#include "LoRa.h"
+#include <RH_RF95.h>
 
 //using namespace std; //could
 
@@ -131,6 +131,10 @@ volatile bool mpuInterrupt = false;  // indicates whether MPU interrupt pin has 
 
 // *** TRX ***
 volatile bool trxInterrupt = false;  // indicates whether TRX interrupt pin has gone high
+#define RFM95_CS 16
+#define RFM95_RST 5
+#define RFM95_INT 4
+#define RF95_FREQ 915.0
 
 // *** META FLIGHT VARIABLES ***
 // These values are more reliable and isolated from the volatile control flight variables.
@@ -651,7 +655,10 @@ bool diagnostic(){
     //TODO OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
     error_sum = error_sum + 16; //16s place
   }
-
+  
+  //PIXY verification
+  
+  
   //Final Error Output
   if (error_sum == 0){
     //TODO OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
