@@ -26,6 +26,6 @@ install:
 
 
 script:
-  - arduino --verify --board arduino:avr:uno $PWD/flightcomputer/flightcompunter.ino
+  - arduino --verify --board arduino:avr:nano $PWD/flightcomputer/flightcompunter.ino
   - arduino --verify --board arduino:avr:uno $PWD/GNCConsole/GNC_Radio/GNC_Radio.ino
   - pylint --errors-only $PWD/GNCConsole/baseStation.py
