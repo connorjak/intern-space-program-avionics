@@ -189,9 +189,11 @@ class GUI():
 
     def getData(self):
         """Get telemetry Data from transciever."""
-        t1 = time.time()
         self.ser.write(b'g')
+        #if(self.ser.in_waiting):
         readString = self.ser.readline()
+        print(readString)
+        #readString = ''.join([i if ord(i) < 128 else ' ' for i in readString])
         readString = readString.decode("utf-8")
         splittedString = readString.split('\t')
         for i, num in enumerate(splittedString):
@@ -202,8 +204,7 @@ class GUI():
         self.accString.set('Accleration\nX: %.5f\nY: %.5f\nZ: %.5f' %
                            (splittedString[0], splittedString[1], splittedString[2]))
         self.logFile.write(readString)
-        self.comJob = root.after(1, self.getData)
-        print(time.time() - t1)
+        self.comJob = root.after(10, self.getData)
 
 
 
