@@ -21,11 +21,11 @@ install:
       - wget http://www.airspayce.com/mikem/arduino/RadioHead/RadioHead-1.85.zip
       - unzip RadioHead-1.85.zip
       - mv RadioHead ~/Arduino/libraries/RadioHead
-      - mv esp8266* ~/Arduino/hardware/esp8266
+      - mv esp8266* ~/Arduino/hardware/esp8266com/esp8266
 
 
 
 script:
   - arduino --verify --board arduino:avr:nano:cpu=atmega328 $PWD/flightcomputer/flightcompunter.ino
-  - arduino --verify --board esp8266:esp8266:generic $PWD/GNCConsole/GNC_Radio/GNC_Radio.ino
+  - arduino --verify --board esp8266com:esp8266:generic $PWD/GNCConsole/GNC_Radio/GNC_Radio.ino
   - pylint --errors-only $PWD/GNCConsole/baseStation.py
