@@ -27,5 +27,5 @@ install:
 
 script:
   - arduino --verify --board arduino:avr:nano:cpu=atmega328 $PWD/flightcomputer/flightcompunter.ino
-  - arduino --verify --board esp8266com:esp8266:generic $PWD/GNCConsole/GNC_Radio/GNC_Radio.ino
+  - arduino --verify --board esp8266:esp8266:generic $PWD/GNCConsole/GNC_Radio/GNC_Radio.ino
   - pylint --errors-only $PWD/GNCConsole/baseStation.py
