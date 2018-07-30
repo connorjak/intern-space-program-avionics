@@ -11,21 +11,21 @@ install:
       - tar xf arduino-1.8.5-linux64.tar.xz
       - sudo mv arduino-1.8.5 /usr/local/share/arduino
       - sudo ln -s /usr/local/share/arduino/arduino /usr/local/bin/
-      #- curl -s https://api.github.com/repos/esp8266/Arduino/releases/latest | grep "browser_download_url.*zip" | cut -d '"' -f 4 | wget -qi -
-      #- unzip esp8266*.zip
-      #- rm esp8266*.zip
+      - curl -s https://api.github.com/repos/esp8266/Arduino/releases/latest | grep "browser_download_url.*zip" | cut -d '"' -f 4 | wget -qi -
+      - unzip esp8266*.zip
+      - rm esp8266*.zip
       - mkdir ~/Arduino
-      #- mkdir ~/Arduino/hardware
+      - mkdir ~/Arduino/hardware
       - mkdir ~/Arduino/libraries
       - cp -r $PWD/flightcomputer/libraries/* ~/Arduino/libraries
       - wget http://www.airspayce.com/mikem/arduino/RadioHead/RadioHead-1.85.zip
       - unzip RadioHead-1.85.zip
       - mv RadioHead ~/Arduino/libraries/RadioHead
-      #- mv esp8266* ~/Arduino/hardware/esp8266
+      - mv esp8266* ~/Arduino/hardware/esp8266
 
 
 
 script:
   - arduino --verify --board arduino:avr:nano:cpu=atmega328 $PWD/flightcomputer/flightcompunter.ino
-  - arduino --verify --board arduino:avr:uno $PWD/GNCConsole/GNC_Radio/GNC_Radio.ino
+  - arduino --verify --board esp8266com:esp8266:generic $PWD/GNCConsole/GNC_Radio/GNC_Radio.ino
   - pylint --errors-only $PWD/GNCConsole/baseStation.py
