@@ -2,13 +2,11 @@
 # pylint: disable=C0103, R0915, R0902, C0111
 import tkinter as tk
 import tkinter.filedialog as filedialog
-import time
 import os
 import sys
 import datetime
 from enum import Enum
 import serial
-
 
 
 accData = [1, 2, 3]
@@ -20,7 +18,7 @@ pres = 12
 
 
 class flightState(Enum):
-    """Enum that contains all of the different states of flight for the rocket."""
+    """Enum that contains all of the different states of flight for the rocket."""  # noqa
 
     SCRUB = 0
     GROUND = 1
@@ -42,8 +40,8 @@ class GUI():
         """Run on GUI Initialization."""
         # These variable are set in other methods, they are defined here for
         # Documentation
-        self.comJob = None  # Reference to communication job used to talk over serial
-        self.logFile = None  # Reference to log file that is used to  store telemetry data
+        self.comJob = None  # Serial Communication Job reference
+        self.logFile = None  # Log File object
         self.ser = None  # Serial communication reference
         master.title("Intern Space Program GNC Console")
         self.accString = tk.StringVar()
@@ -66,7 +64,9 @@ class GUI():
         self.COMPort.insert(0, 'COM4')
         self.fileLocation = tk.Entry(master)
         self.fileLocation.delete(0, tk.END)
-        self.fileLocation.insert(0, os.getcwd() + '\Logs\%s.csv' % datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
+        self.fileLocation.insert(0, os.getcwd() + r'\Logs\%s.csv' %
+                                 datetime.datetime.now().strftime(
+                                     "%Y-%m-%d-%H-%M-%S"))
         self.fileDialogButton = tk.Button(
             master, text='Set Location', command=self.fileDialogOp
         )
@@ -95,7 +95,8 @@ class GUI():
             master, text='LANDED', height=10, width=20,
             command=lambda: self.sendflightState(flightState.LANDED))
         self.abort_button = tk.Button(
-            master, text="ABORT!", command=self.abort, height=10, background='red')
+            master, text="ABORT!", command=self.abort,
+            height=10, background='red')
         self.close_button = tk.Button(master, text="Close", command=self.quit)
         self.accDisp = tk.Label(
             master, textvariable=self.accString, font=("TkDefaultFont", 10))
@@ -137,11 +138,8 @@ class GUI():
         self.close_button.grid(row=7, columnspan=7)
 
     def sendflightState(self, sendState):
-        """Send the current flight state to the transciever, and thus the rocket."""
+        """Send the current flight state to the transciever, and thus the rocket."""   # noqa
         self.ser.write(b's%i' % sendState.value)
-        #self.currState = sendState
-        #self.scrubState.config(relief=tk.SUNKEN)
-
 
     def fileDialogOp(self):
         """Select the file to write the log to."""
@@ -151,7 +149,6 @@ class GUI():
                                      title='Select Log File Location',
                                      filetypes=[('csv file', '*.csv')],
                                      defaultextension='.csv'))
-
 
     def quit(self):
         """Quit the application."""
@@ -179,7 +176,8 @@ class GUI():
     def stopComProcess(self):
         """Stop serial communication with the transciever."""
         # If statements prevent error stemming from uassigned variables
-        # Else statements will display warning messages if variable is unassigned
+        # Else statements will display warning messages if variable is
+        # unassigned
         if self.comJob is not None:
             root.after_cancel(self.comJob)
         if self.logFile is not None:
@@ -190,10 +188,8 @@ class GUI():
     def getData(self):
         """Get telemetry Data from transciever."""
         self.ser.write(b'g')
-        #if(self.ser.in_waiting):
         readString = self.ser.readline()
         print(readString)
-        #readString = ''.join([i if ord(i) < 128 else ' ' for i in readString])
         readString = readString.decode("utf-8")
         splittedString = readString.split('\t')
         for i, num in enumerate(splittedString):
@@ -202,10 +198,10 @@ class GUI():
             except ValueError:
                 pass
         self.accString.set('Accleration\nX: %.5f\nY: %.5f\nZ: %.5f' %
-                           (splittedString[0], splittedString[1], splittedString[2]))
+                           (splittedString[0], splittedString[1],
+                            splittedString[2]))
         self.logFile.write(readString)
         self.comJob = root.after(10, self.getData)
-
 
 
 if __name__ == "__main__":

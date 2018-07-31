@@ -8,16 +8,21 @@
 
 #include <SPI.h>
 #include <RH_RF95.h>
+#include <RHReliableDatagram.h>
 
 #define RFM95_CS 16
 #define RFM95_RST 5
 #define RFM95_INT 4
 #define RF95_FREQ 915.0
 
+#define CLIENT_ADDRESS 1
+#define SERVER_ADDRESS 2
+
 // Change to 434.0 or other frequency, must match RX's freq!
 
 // Singleton instance of the radio driver
 RH_RF95 rf95(RFM95_CS, RFM95_INT);
+RHReliableDatagram manager(rf95, CLIENT_ADDRESS);
 void setup()
 {
   pinMode(RFM95_RST, OUTPUT);
@@ -53,45 +58,28 @@ void setup()
 }
 
 int16_t packetnum = 0;  // packet counter, we increment per xmission
+uint8_t data[] = "Hello World!";
+uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
 
 void loop()
 {
   Serial.println("Sending to rf95_server");
   // Send a message to rf95_server
-
-  char radiopacket[20] = "Hello World #      ";
-  itoa(packetnum++, radiopacket+13, 10);
-  Serial.print("Sending "); Serial.println(radiopacket);
-  radiopacket[19] = 0;
-
-  Serial.println("Sending..."); delay(10);
-  rf95.send((uint8_t *)radiopacket, 20);
-
-  Serial.println("Waiting for packet to complete..."); delay(10);
-  rf95.waitPacketSent();
-  // Now wait for a reply
-  uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
-  uint8_t len = sizeof(buf);
-
-  Serial.println("Waiting for reply..."); delay(10);
-  if (rf95.waitAvailableTimeout(1000))
-  {
-    // Should be a reply message for us now
-    if (rf95.recv(buf, &len))
-   {
-      Serial.print("Got reply: ");
-      Serial.println((char*)buf);
-      Serial.print("RSSI: ");
-      Serial.println(rf95.lastRssi(), DEC);
-    }
-    else
+  if (manager.sendtoWait(data, sizeof(data), SERVER_ADDRESS)){
+    uint8_t len = sizeof(buf);
+    uint8_t from;
+    if(manager.recvfromAckTimeout(buf, &len, 2000, &from))
     {
-      Serial.println("Receive failed");
+      Serial.print("got reply from : 0x");
+      Serial.print(from, HEX);
+      Serial.print(": ");
+      Serial.println((char*)buf);
+    }
+    else{
+      Serial.println("No reply, is rf95_reliable_datagram_server running?");
     }
   }
   else
-  {
-    Serial.println("No reply, is there a listener around?");
-  }
-  delay(1000);
-}
+    Serial.println("sendtoWait failed");
+  delay(500);
+};

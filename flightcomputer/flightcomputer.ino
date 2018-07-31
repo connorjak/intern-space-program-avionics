@@ -26,9 +26,9 @@
 // define specific voltages and stuff here
 
 // *** PINS ***
-#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO update to reflect actual pin
-#define I2C_SCL                   -1 //Digital pin #  //TODO update to reflect actual pin
-#define I2C_SDA                   -1 //Digital pin #  //TODO update to reflect actual pin
+#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO:770 update to reflect actual pin
+#define I2C_SCL                   -1 //Digital pin #  //TODO:780 update to reflect actual pin
+#define I2C_SDA                   -1 //Digital pin #  //TODO:790 update to reflect actual pin
 #define SERVO_LEFT                 9 //Digital pin 9
 #define SERVO_RIGHT               10 //Digital pin 10
 #define SERVO_BACK                11 //Digital pin 10
@@ -141,7 +141,7 @@ volatile bool trxInterrupt = false;  // indicates whether TRX interrupt pin has 
 // Use these values when TX to ground station.
 
 float currentPitch =   0.0; // degrees, pitch above the horizon
-float currentRoll =    0.0; // degrees, roll left wing above horizon //TODO coordinate system document
+float currentRoll =    0.0; // degrees, roll left wing above horizon //TODO:400 coordinate system document
 float currentAzimuth = 0.0; // degrees, compass reading from forward of glider
 
 float altitude =  -10000.0; // meters
@@ -176,7 +176,7 @@ bool firstTimeThroughState = true; //does some logic inside a state if it's the 
 // *** FUNCTIONS ***************************************************************
 
 void setup() {
-  //TODO should we lock the mutux in this function?
+  //TODO:720 should we lock the mutux in this function?
   //wait a little for any power fluctuations
   //delay(SETUP_WAIT_TIME); <-- I believe the processor takes care of this
 
@@ -210,7 +210,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
+loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
   trxInterrupt = false;
 
   switch(STATE){
@@ -225,10 +225,10 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
   //8 LANDED
     case 0: //0 SCRUB **********************************************************
       if(firstTimeThroughState){
-        //TODO things
+        //TODO:730 things
       }
 
-      //TODO TX warning messages, etc
+      //TODO:150 TX warning messages, etc
 
       if (AUTOSTATE && !trxInterrupt){
         // SCRUB never automatically changes to another state
@@ -242,7 +242,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         elevatorDeflect = ELEVATOR_DEFLECT_1;
       }
 
-      //TODO following
+      //TODO:420 following
       // Do final calibration
       // Slow logging
 
@@ -265,7 +265,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         elevatorDeflect = ELEVATOR_DEFLECT_2;
       }
 
-      //TODO following
+      //TODO:430 following
       // Fast logging
 
       // Keep control surfaces at launch position
@@ -286,7 +286,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         }
 
         // Timer Watchdog
-        //TODO make this
+        //TODO:590 make this
 
       }
       break;
@@ -297,7 +297,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         elevatorDeflect = ELEVATOR_DEFLECT_3;
       }
 
-      //TODO following
+      //TODO:440 following
       // Fast logging
 
       // Set control surfaces to SEP position
@@ -306,7 +306,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
 
       if (AUTOSTATE && !trxInterrupt){
         // Timer Watchdog
-        //TODO make this
+        //TODO:600 make this
 
         // Less than parachute altitude
         if(altitude<PARACHUTE_ALTITUDE){
@@ -315,7 +315,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         }
 
         // Failure Mode Detected
-        //TODO make this
+        //TODO:610 make this
       }
       break;
 
@@ -327,20 +327,20 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
 
       }
 
-      //TODO following
+      //TODO:450 following
       // Autopilot for Stall/Spin recovery
       // Fast logging
 
       if (AUTOSTATE && !trxInterrupt){
         // Sense Stable Flight Sensor Fusion
-        //TODO logic behind this
+        //TODO:520 logic behind this
         if(false){
           STATE = 5; // SEARCH
           firstTimeThroughState = true;
         }
 
         // Timer Watchdog
-        //TODO make this
+        //TODO:620 make this
 
         // Less than parachute altitude
         if(altitude<PARACHUTE_ALTITUDE){
@@ -349,7 +349,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         }
 
         // Failure Mode Detected
-        //TODO make this
+        //TODO:630 make this
       }
       break;
 
@@ -361,23 +361,23 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
 
       }
 
-      //TODO following
+      //TODO:460 following
       // Autopilot for Search pattern
       // Fast logging
 
       if (AUTOSTATE && !trxInterrupt){
         // Accurate Solution of Relative Position Sensor Fusion
-        //TODO logic behind this
+        //TODO:530 logic behind this
         if(false){
           STATE = 6; // ORBIT
           firstTimeThroughState = true;
         }
 
         // Timer Watchdog
-        //TODO make this
+        //TODO:640 make this
 
         // Telemetry Out of Norm Sensor Fusion
-        //TODO logic behind this
+        //TODO:540 logic behind this
         if(false){
           STATE = 4; // STABILIZE
           firstTimeThroughState = true;
@@ -390,7 +390,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         }
 
         // Failure Mode Detected
-        //TODO make this
+        //TODO:650 make this
       }
       break;
 
@@ -402,23 +402,23 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
 
       }
 
-      //TODO following
+      //TODO:470 following
       // Autopilot for Orbit pattern
       // Fast logging
 
       if (AUTOSTATE && !trxInterrupt){
         // Lost Sight of Target Sensor Fusion
-        //TODO logic behind this
+        //TODO:550 logic behind this
         if(false){
           STATE = 5; // SEARCH
           firstTimeThroughState = true;
         }
 
         // Timer Watchdog
-        //TODO make this
+        //TODO:660 make this
 
         // Telemetry Out of Norm Sensor Fusion
-        //TODO logic behind this
+        //TODO:560 logic behind this
         if(false){
           STATE = 4; // STABILIZE
           firstTimeThroughState = true;
@@ -431,7 +431,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
         }
 
         // Failure Mode Detected
-        //TODO make this
+        //TODO:670 make this
       }
       break;
 
@@ -443,30 +443,30 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
 
       }
 
-      //TODO following
+      //TODO:480 following
       // Autopilot for Abort
       // if (!explosiveSafetyOn && fireEjectionCharge == "FIRE"), fire it.
       // Fast logging
 
       if (AUTOSTATE && !trxInterrupt){
         // Landed? Sensor Fusion
-        //TODO logic behind this
+        //TODO:570 logic behind this
         if(false){
           STATE = 8; // LANDED
           firstTimeThroughState = true;
         } 
 
         // Timer Watchdog
-        //TODO make this
+        //TODO:680 make this
       }
       break;
 
     case 8: //8 LANDED *********************************************************
       if(firstTimeThroughState){
-        //TODO things
+        //TODO:740 things
       }
 
-      //TODO following
+      //TODO:490 following
       // Some shutdown steps (especially for servos)
       // Recovery Beacon?
       // Slow logging
@@ -477,7 +477,7 @@ loop_start: collectData(); //TODO is this just a vestige of the GOTO stuff?
       break;
 
     default: // other than 0-8 *************************************************
-      //TODO Debug Error: what the hell? how did I get to a nonexistant state?
+      //TODO:10 Debug Error: what the hell? how did I get to a nonexistant state?
 
       if (AUTOSTATE && !trxInterrupt){
         STATE = 4; //revert to Stabilize
@@ -515,13 +515,13 @@ void initialize(){
   //Transciever Setup
   //enable interrupt attach
   attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), transInterrupt, RISING);
-  //TODO communications setup
+  //TODO:380 communications setup
 
   //MPU Setup
     mpu.initialize();
-    // load and configure the DMP
+    // load and configure the TODO:0 
     devStatus = mpu.dmpInitialize();
-    // supply your own gyro offsets here, scaled for min sensitivity //TODO tune these?
+    // supply your own gyro offsets here, scaled for min sensitivity //TODO:750 tune these?
     mpu.setXGyroOffset(220);
     mpu.setYGyroOffset(76);
     mpu.setZGyroOffset(-85);
@@ -539,7 +539,7 @@ void initialize(){
         packetSize = mpu.dmpGetFIFOPacketSize();
     } else {
         // ERROR!
-        //TODO REPORT ERROR HERE OVER TRANSCIVER
+        //TODO:130 REPORT ERROR HERE OVER TRANSCIVER
     }
     Wire.begin();
     Wire.beginTransmission(MPU_ADDR);
@@ -643,16 +643,16 @@ bool diagnostic(){
 
   //Servo 'Dance'
   servo_sweep();
-  if (servoRightAngle != servoRight.read()){ //TODO can we actually read from these servos?
-    //TODO OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
+  if (servoRightAngle != servoRight.read()){ //TODO:340 can we actually read from these servos?
+    //TODO:60 OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
     error_sum = error_sum + 4; //4s place
   }
   if (servoLeftAngle != servoLeft.read()){
-    //TODO OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
+    //TODO:40 OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
     error_sum = error_sum + 8; //8s place
   }
   if (servoBackAngle != servoBack.read()){
-    //TODO OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
+    //TODO:20 OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
     error_sum = error_sum + 16; //16s place
   }
   
@@ -661,11 +661,11 @@ bool diagnostic(){
   
   //Final Error Output
   if (error_sum == 0){
-    //TODO OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
+    //TODO:100 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
     return true;
   }
   else{
-    //TODO OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). Error code: (error_sum in binary). SCRUB!
+    //TODO:80 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). Error code: (error_sum in binary). SCRUB!
     return false;
   }
   return false;
@@ -674,14 +674,14 @@ bool diagnostic(){
 
 void aileronWrite(float aileronDeflection){
   servoLeftAngle = SERVO_CENTER + (int)aileronDeflection;
-  servoRightAngle = SERVO_CENTER + (int)aileronDeflection; //TODO check direction
+  servoRightAngle = SERVO_CENTER + (int)aileronDeflection; //TODO:360 check direction
   servoLeft.write(servoLeftAngle);
   servoRight.write(servoRightAngle);
 }
 
 
 void elevatorWrite(float elevatorDeflection){
-  servoBackAngle = SERVO_CENTER + (int)elevatorDeflection;//TODO check direction
+  servoBackAngle = SERVO_CENTER + (int)elevatorDeflection;//TODO:370 check direction
   servoBack.write(servoBackAngle);
 }
 
@@ -692,19 +692,19 @@ void dmpDataReady() {
 
 
 void transInterrupt(){
-  //TODO get transciver data
+  //TODO:500 get transciver data
   //STATE = sent_string;
 }
 
 
 float setBarometerZero(){
-  //TODO resets the barometer to zero and returns the pressure value
+  //TODO:710 resets the barometer to zero and returns the pressure value
   return -1.0f;
 }
 
 
 void collectData(){
-  //TODO Populate the META FLIGHT VARIABLES with values from the volatile sets
+  //TODO:120 Populate the META FLIGHT VARIABLES with values from the volatile sets
 }
 
 

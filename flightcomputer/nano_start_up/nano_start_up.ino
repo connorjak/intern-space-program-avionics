@@ -7,9 +7,9 @@
 #include <RH_RF95.h>
 
 // *** PINS ***
-#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO update to reflect actual pin
-#define I2C_SCL                   -1 //Digital pin #  //TODO update to reflect actual pin
-#define I2C_SDA                   -1 //Digital pin #  //TODO update to reflect actual pin
+#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO:800 update to reflect actual pin
+#define I2C_SCL                   -1 //Digital pin #  //TODO:810 update to reflect actual pin
+#define I2C_SDA                   -1 //Digital pin #  //TODO:820 update to reflect actual pin
 #define SERVO_LEFT                 9 //Digital pin 9
 #define SERVO_RIGHT               10 //Digital pin 10
 #define SERVO_BACK                11 //Digital pin 10
@@ -95,13 +95,13 @@ void initialize(){
   //Transciever Setup
   //enable interrupt attach
   attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), transInterrupt, RISING);
-  //TODO communications setup
+  //TODO:390 communications setup
 
   //MPU Setup
     mpu.initialize();
     // load and configure the DMP
     devStatus = mpu.dmpInitialize();
-    // supply your own gyro offsets here, scaled for min sensitivity //TODO tune these?
+    // supply your own gyro offsets here, scaled for min sensitivity //TODO:760 tune these?
     mpu.setXGyroOffset(220);
     mpu.setYGyroOffset(76);
     mpu.setZGyroOffset(-85);
@@ -119,7 +119,7 @@ void initialize(){
         packetSize = mpu.dmpGetFIFOPacketSize();
     } else {
         // ERROR!
-        //TODO REPORT ERROR HERE OVER TRANSCIVER
+        //TODO:140 REPORT ERROR HERE OVER TRANSCIVER
     }
     Wire.begin();
     Wire.beginTransmission(MPU_ADDR);
@@ -173,16 +173,16 @@ bool diagnostic(){
 
   //Servo 'Dance'
   servo_sweep();
-  if (servoRightAngle != servoRight.read()){ //TODO can we actually read from these servos?
-    //TODO OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
+  if (servoRightAngle != servoRight.read()){ //TODO:350 can we actually read from these servos?
+    //TODO:70 OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
     error_sum = error_sum + 4; //4s place
   }
   if (servoLeftAngle != servoLeft.read()){
-    //TODO OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
+    //TODO:50 OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
     error_sum = error_sum + 8; //8s place
   }
   if (servoBackAngle != servoBack.read()){
-    //TODO OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
+    //TODO:30 OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
     error_sum = error_sum + 16; //16s place
   }
   
@@ -191,11 +191,11 @@ bool diagnostic(){
   
   //Final Error Output
   if (error_sum == 0){
-    //TODO OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
+    //TODO:110 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
     return true;
   }
   else{
-    //TODO OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). Error code: (error_sum in binary). SCRUB!
+    //TODO:90 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). Error code: (error_sum in binary). SCRUB!
     return false;
   }
   return false;
