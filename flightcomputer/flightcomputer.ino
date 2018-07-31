@@ -178,7 +178,7 @@ bool firstTimeThroughState = true; //does some logic inside a state if it's the 
 void setup() {
   //TODO should we lock the mutux in this function?
   //wait a little for any power fluctuations
-  delay(SETUP_WAIT_TIME);
+  //delay(SETUP_WAIT_TIME); <-- I believe the processor takes care of this
 
   bool diagnosticPass = false;
 
@@ -619,11 +619,11 @@ bool diagnostic(){
   // if sure not recieved, wait 100 ms then send again
   // resend 3 times before throwing error
   int packet_loss = 0;
-  char target[4] = "sure";
   for(packet_loss; packet_loss < 3; packet_loss += 1){
     Serial.println("handshake"); //sends impetus for handshake
     Serial.flush(); //waits for outgoing stream to complete
-    if (Serial.find(target)){ //breaks from loop if 'sure' is found
+    while(!Serial.available());
+    if (Serial.find("sure")){ //breaks from loop if 'sure' is found
       break;
     }
   }
