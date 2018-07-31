@@ -4,4 +4,6 @@ GNCConsole/multiprocess station
 *.csv
 GNCConsole/.imdone/config.json
 
+GNCConsole/datamanagersamples/
+
 GNCConsole/Serial\.py
