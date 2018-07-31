@@ -24,7 +24,7 @@
 #define SERVO_CENTER              90 // Starting Angle
 #define SERVO_MAX                130 // Artifical max for servos (mech. limits TBD)
 #define SERVO_MIN                 50 // Artifical min for servos (mech. limits TBD)
-
+#define TRX_POWER                 23 //output power (5-23 dBm)
 // *** VARIABLES ***************************************************************
 
 Pixy pixy; // This is the main Pixy object
@@ -56,15 +56,19 @@ volatile bool mpuInterrupt = false;  // indicates whether MPU interrupt pin has 
 
 // *** TRX ***
 volatile bool trxInterrupt = false;  // indicates whether TRX interrupt pin has gone high
-#define RFM95_CS 16
-#define RFM95_RST 5
-#define RFM95_INT 4
-#define RF95_FREQ 915.0
+#define RFM95_CS                  16 //UNKNOWN WHAT DIS
+#define RFM95_RST                  5 //UNKNOWN WHAT DIS (DIGITAL DATA PIN?)
+#define RFM95_INT                  4 //UNKNOWN WHAT DIS (INTERRUPT PIN?)
+#define RF95_FREQ              915.0 //Transmit Frequency
+#define TRX_POWER                 23 //output power (5-23 dBm)
+#define CLIENT_ADDRESS             1
+#define SERVER_ADDRESS             2
+RH_RF95 rf95(RFM95_CS, RFM95_INT);    //Radio Driver Object
+RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
-  //driver.init() is Transceiver setup
   //pinMode(4, OUTPUT);
   pi_go();
   initialize();
@@ -86,16 +90,34 @@ void pi_go(){
     while (Serial.available() && Serial.read()); // empty buffer again
 }
 
+void transmit_data(char* data){ // Send a message to rf95_server
+  uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
+  uint8_t len = sizeof(buf);
+  uint8_t from;
+  manager.sendtoWait(data, sizeof(data), SERVER_ADDRESS)
+    if(manager.recvfromAckTimeout(buf, &len, 2000, &from)){
+      //Sent successful, acknowledge recieved
+      //Serial.print("got reply from : 0x"); Serial.print(from, HEX);Serial.print(": "); Serial.println((char*)buf);
+    }
+    else{
+      //No acknowledge
+     // Serial.println("No reply, is rf95_reliable_datagram_server running?");
+    }
+}
 
+char recieve_data(){
+  //TODO put recieve code here
+}
 void initialize(){
-  //    MPU setup
-  //    Pixy Setup
-  //    SPI and I2C setup
-
+  
   //Transciever Setup
   //enable interrupt attach
   attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), transInterrupt, RISING);
-  //TODO:390 communications setup
+  pinMode(RFM95_RST, OUTPUT);
+  digitalWrite(RFM95_RST, HIGH);
+  rf95.init(); //radio initialization
+  rf95.setFrequency(RF95_FREQ) //set frequency
+  rf95.setTxPower(TRX_POWER, false); //set output power
 
   //MPU Setup
     mpu.initialize();
@@ -118,8 +140,7 @@ void initialize(){
         // get expected DMP packet size for later comparison
         packetSize = mpu.dmpGetFIFOPacketSize();
     } else {
-        // ERROR!
-        //TODO:140 REPORT ERROR HERE OVER TRANSCIVER
+        transmit_data("ERROR: IMU Initialization Failed\n");
     }
     Wire.begin();
     Wire.beginTransmission(MPU_ADDR);
@@ -141,6 +162,11 @@ bool diagnostic(){
   int error_sum = 0;
   // int error_sum is used as a bitset, where, when read as a binary number, it
   // tells you exactly where your errors were, no matter the combination.
+  //error_sum = (error_sum << 1) + 1; pushes 1 bit onto string of bits for error
+  //error_sum = (error_sum << 1);  pushes 0 bit onto string of bits for no error
+  //^^^ this method allows for easy addition of error checking protocols without hard coding the decimal values
+  //and changing of order in code does not affect
+
 
   //Tranciever Handshake
 
@@ -159,34 +185,52 @@ bool diagnostic(){
   }
   //3 errors occured
   if (packet_loss == 3){
-    //OUTPUT to TRANSCIEVER ERROR
-    error_sum = error_sum + 1; //1s place
+    transmit_data("ERROR: PI to NANO Packet Loss\n");
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1); 
   }
 
   //MPU check
   // verify MPU connection
   if(!mpu.testConnection()){
-    ////OUTPUT to TRANSCIEVER ERROR
-    error_sum = error_sum + 2; //2s place
+    transmit_data("ERROR: IMU Connection Issues\n");
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1); 
   }
   //Verify MPU acc and gryo readings
 
   //Servo 'Dance'
   servo_sweep();
   if (servoRightAngle != servoRight.read()){ //TODO:350 can we actually read from these servos?
+    transmit_data("ERROR: Right Servo Angle Error\n");
     //TODO:70 OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
-    error_sum = error_sum + 4; //4s place
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1); 
   }
   if (servoLeftAngle != servoLeft.read()){
+    transmit_data("ERROR: Left Servo Angle Error\n");
     //TODO:50 OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
-    error_sum = error_sum + 8; //8s place
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1); 
   }
   if (servoBackAngle != servoBack.read()){
+    transmit_data("ERROR: Back Servo Angle Error\n");
     //TODO:30 OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
-    error_sum = error_sum + 16; //16s place
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1); 
   }
   
-  //PIXY verification
+  //TODO: PIXY verification
   
   
   //Final Error Output
