@@ -26,7 +26,7 @@ HardwareTimer timer(1);
 // Define RH_ASK_ARDUINO_USE_TIMER2 if you want to use Timer 2 instead of Timer 1 on Arduino
 // You may need this to work around other librraies that insist on using timer 1
 // Should be moved to header file
-//#define RH_ASK_ARDUINO_USE_TIMER2
+#define RH_ASK_ARDUINO_USE_TIMER2
 
 // Interrupt handler uses this to find the most recently initialised instance of this driver
 static RH_ASK* thisASKDriver;

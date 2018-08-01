@@ -532,6 +532,7 @@ void pi_go(){
     while (Serial.available() && Serial.read()); // empty buffer again
 }
 
+
 void transmit_data(char* data){ // Send a message to rf95_server
   uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
   uint8_t len = sizeof(buf);
@@ -548,9 +549,11 @@ void transmit_data(char* data){ // Send a message to rf95_server
   }
 }
 
+
 char recieve_data(){
   //TODO put recieve code here
 }
+
 
 void initialize(){
 
