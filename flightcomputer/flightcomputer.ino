@@ -141,6 +141,9 @@ volatile bool trxInterrupt = false;  // indicates whether TRX interrupt pin has 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);    //Radio Driver Object
 RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
 
+//*** COMMUNICATIONS ***
+char output_string[250];
+
 // *** META FLIGHT VARIABLES ***
 // These values are more reliable and isolated from the volatile control flight variables.
 // Use these values when TX to ground station.
@@ -624,9 +627,9 @@ void servo_sweep(){
     servoBack.write(pos);
     delay(15);
   }
-  servoRightAngle = pos;
-  servoLeftAngle = pos;
-  servoBackAngle = pos;
+  servoRightAngle = (pos-1);
+  servoLeftAngle = (pos-1);
+  servoBackAngle = (pos-1);
 }
 
 
@@ -751,9 +754,12 @@ float setBarometerZero(){
 
 void collectData(){
   //TODO:120 Populate the META FLIGHT VARIABLES with values from the volatile sets
+  
 }
 
-
+void make_string(){
+  
+}
 /*
 ARDUINO GOTO ---
 
