@@ -55,6 +55,7 @@
 #define CANARD_DEFLECT_1         9.0 //degrees //TODO check this
 #define ELEVATOR_DEFLECT_1       0.0 //degrees
 #define AILERON_DEFLECT_1        0.0 //degrees
+#define ALTIMETER_GROUNDSAFE    15.0 //meters, the altitude at which launch definitely happened
 #define LAUNCH_ACCEL            90.0 // m/s^2, the forward acceleration at which launch definitely happened
 #define MINTIME_1                0.0 //seconds
 #define MAXTIME_1          9000000.0 //seconds
@@ -152,8 +153,8 @@ volatile bool trxInterrupt = false;  // indicates whether TRX interrupt pin has 
 #define RFM95_INT                  4 //TODO UNKNOWN WHAT DIS (INTERRUPT PIN?)
 #define RF95_FREQ              915.0 //Transmit Frequency
 #define TRX_POWER                 23 //output power (5-23 dBm)
-#define CLIENT_ADDRESS             1
-#define SERVER_ADDRESS             2
+#define CLIENT_ADDRESS             1 //TODO set from Pi handshake?
+#define SERVER_ADDRESS             2 //TODO set from Pi handshake?
 RH_RF95 rf95(RFM95_CS, RFM95_INT);    //Radio Driver Object
 RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
 
@@ -162,21 +163,23 @@ RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
 // These values are more reliable and isolated from the volatile control flight variables.
 // Use these values when TX to ground station.
 
-float currentPitch =   0.0; // degrees, pitch above the horizon
-float currentRoll =    0.0; // degrees, roll left wing above horizon //TODO:400 coordinate system document
-float currentYaw =     0.0; // degrees, compass reading from forward of glider
+float currentPitch =          0.0; // degrees, pitch above the horizon
+float currentRoll =           0.0; // degrees, roll left wing above horizon //TODO:400 coordinate system document
+float currentYaw =            0.0; // degrees, compass reading from forward of glider
 
-float altitude =   -1000.0; // meters
-float altitudeRate =   0.0; // m/s
+float altitude =          -1000.0; // meters
+float altitudeRate =          0.0; // m/s
 
-float accelForward =   0.0; // acceleration in forward direction, no gravity
-float accelGliderFrame[3]; // acceleration in glider frame, no gravity
-float accelWorldFrame[3]; // acceleration in world frame (x+ East, y+ North, z+ Up), yes gravity
-
+float accelForward =          0.0; // acceleration in forward direction, no gravity
+float accelGliderFrame[3];         // acceleration in glider frame, no gravity
+float accelWorldFrame[3];          // acceleration in world frame (x+ East, y+ North, z+ Up), yes gravity
 
 // *** CONTROL FLIGHT VARIABLES ***
 // These values are meant to be used for RX from ground station and set by autopilot
 // Be cautious to use these values when TX to ground station.
+
+volatile long millMET =            -300000; //milliseconds, mission time counter
+volatile long millisMETOffset =          0; //milliseconds, Offset = millis when MET starts countdown
 
 volatile float pitchGoal =       DEFAULT_PITCH_GOAL_4; //commanded pitch goal, degrees, above the horizon
 volatile float rollGoal =        DEFAULT_PITCH_GOAL_4; //commanded roll goal, degrees, left wing above horizon
@@ -191,9 +194,10 @@ volatile char fireEjectionCharge[] = "no"; // must set to exactly "FIRE" to trig
 
 
 // *** FLIGHT STATES ***
-int STATE =                   0;    //start in SCRUB, then setup() switches to GROUND_READY if diagnostic() passes
-bool AUTOSTATE =              true; //whether or not to allow automatic switching between flight state
-bool firstTimeThroughState =  true; //does some logic inside a state if it's the first time through
+volatile int STATE =                   0;     //start in SCRUB, then setup() switches to GROUND_READY if diagnostic() passes
+volatile bool AUTOSTATE =              true;  //whether or not to allow automatic switching between flight state
+volatile bool firstTimeThroughState =  true;  //does some logic inside a state if it's the first time through
+volatile bool holdMET =                false; //whether or not to hold the elapsed time counter
 
 
 
@@ -262,9 +266,15 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
 
     case 1: //1 GROUND_READY ***************************************************
       if(firstTimeThroughState){
-        aileronDeflect = AILERON_DEFLECT_1;
+        aileronDeflect =  AILERON_DEFLECT_1;
         elevatorDeflect = ELEVATOR_DEFLECT_1;
-        canardDeflect = CANARD_DEFLECT_1;
+        canardDeflect =   CANARD_DEFLECT_1;
+
+        millMET = -300000; //T-300 seconds //TODO remember to change to #DEFINE
+        millisMETOffset = millis();
+      }
+      else{
+        millMET = millis()-millisMETOffset;
       }
 
       //TODO:420 following
@@ -287,9 +297,11 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
 
     case 2: //2 BOOST **********************************************************
       if(firstTimeThroughState){
-        aileronDeflect = AILERON_DEFLECT_2;
+        aileronDeflect =  AILERON_DEFLECT_2;
         elevatorDeflect = ELEVATOR_DEFLECT_2;
       }
+
+      millMET = millis()-millisMETOffset;
 
       //TODO:430 following
       // Fast logging
@@ -319,9 +331,11 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
 
     case 3: //3 SEPARATE *******************************************************
       if(firstTimeThroughState){
-        aileronDeflect = AILERON_DEFLECT_3;
+        aileronDeflect =  AILERON_DEFLECT_3;
         elevatorDeflect = ELEVATOR_DEFLECT_3;
       }
+
+      millMET = millis()-millisMETOffset;
 
       //TODO:440 following
       // Fast logging
@@ -348,10 +362,11 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
     case 4: //4 STABILIZE ******************************************************
       if(firstTimeThroughState){
         pitchGoal = DEFAULT_PITCH_GOAL_4;
-        rollGoal = DEFAULT_ROLL_GOAL_4;
-        yawGoal = DEFAULT_YAW_GOAL_4;
-
+        rollGoal =  DEFAULT_ROLL_GOAL_4;
+        yawGoal =   DEFAULT_YAW_GOAL_4;
       }
+
+      millMET = millis()-millisMETOffset;
 
       //TODO:450 following
       // Autopilot for Stall/Spin recovery
@@ -382,10 +397,12 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
     case 5: //5 SEARCH *********************************************************
       if(firstTimeThroughState){
         pitchGoal = DEFAULT_PITCH_GOAL_5;
-        rollGoal = DEFAULT_ROLL_GOAL_5;
-        yawGoal = DEFAULT_YAW_GOAL_5;
+        rollGoal =  DEFAULT_ROLL_GOAL_5;
+        yawGoal =   DEFAULT_YAW_GOAL_5;
 
       }
+
+      millMET += millis()-millisMETOffset;
 
       //TODO:460 following
       // Autopilot for Search pattern
@@ -423,10 +440,12 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
     case 6: //6 ORBIT **********************************************************
       if(firstTimeThroughState){
         pitchGoal = DEFAULT_PITCH_GOAL_6;
-        rollGoal = DEFAULT_ROLL_GOAL_6;
-        yawGoal = DEFAULT_YAW_GOAL_6;
+        rollGoal =  DEFAULT_ROLL_GOAL_6;
+        yawGoal =   DEFAULT_YAW_GOAL_6;
 
       }
+
+      millMET = millis()-millisMETOffset;
 
       //TODO:470 following
       // Autopilot for Orbit pattern
@@ -464,10 +483,11 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
     case 7: //7 RECOVER_ABORT **************************************************
       if(firstTimeThroughState){
         pitchGoal = DEFAULT_PITCH_GOAL_7;
-        rollGoal = DEFAULT_ROLL_GOAL_7;
-        yawGoal = DEFAULT_YAW_GOAL_7;
-
+        rollGoal =  DEFAULT_ROLL_GOAL_7;
+        yawGoal =   DEFAULT_YAW_GOAL_7;
       }
+
+      millMET = millis()-millisMETOffset;
 
       //TODO:480 following
       // Autopilot for Abort
@@ -492,6 +512,8 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         //TODO:740 things
       }
 
+      millMET = millis()-millisMETOffset;
+
       //TODO:490 following
       // Some shutdown steps (especially for servos)
       // Recovery Beacon?
@@ -504,6 +526,8 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
 
     default: // other than 0-8 *************************************************
       //TODO:10 Debug Error: what the hell? how did I get to a nonexistant state?
+
+      millMET = millis()-millisMETOffset;
 
       if (AUTOSTATE && !trxInterrupt){
         STATE = 4; //revert to Stabilize
@@ -744,22 +768,22 @@ bool diagnostic(){
 
 
 void aileronWrite(float aileronDeflection){
-  servoLeftAngle = SERVO_CENTER + (int)aileronDeflection;
-  servoRightAngle = SERVO_CENTER + (int)aileronDeflection; //TODO:360 check direction
+  servoLeftAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*aileronDeflection);
+  servoRightAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*aileronDeflection); //TODO:360 check direction
   servoLeft.write(servoLeftAngle);
   servoRight.write(servoRightAngle);
 }
 
 
 void elevatorWrite(float elevatorDeflection){
-  servoBackAngle = SERVO_CENTER + (int)elevatorDeflection;//TODO:370 check direction
+  servoBackAngle = SERVO_CENTER + (int)(SERVO_ELEVATOR_MULT*elevatorDeflection);//TODO:370 check direction
   servoBack.write(servoBackAngle);
 }
 
 
 void canardWrite(float canardDeflection){
-  servoLeftAngle = SERVO_CENTER + (int)canardDeflection;//TODO:370 check direction
-  servoRightAngle = SERVO_CENTER + (int)canardDeflection;//TODO:370 check direction
+  servoLeftAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*canardDeflection);//TODO:370 check direction
+  servoRightAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*canardDeflection);//TODO:370 check direction
   servoLeft.write(servoLeftAngle);
   servoRight.write(servoRightAngle);
 }
