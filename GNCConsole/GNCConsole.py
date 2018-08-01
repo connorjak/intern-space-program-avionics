@@ -27,8 +27,8 @@ class flightState(Enum):
     STABILIZE = 4
     SEARCH = 5
     ORBIT = 6
-    LANDED = 7
-    ABORT = 8
+    ABORT = 7
+    LANDED = 8
 
 
 class GUI():
