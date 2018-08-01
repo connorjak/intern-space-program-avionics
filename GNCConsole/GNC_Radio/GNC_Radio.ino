@@ -72,10 +72,6 @@ void loop()
     command = Serial.read();
     delay(2);
     if(command == 'g'){
-<<<<<<< HEAD
-=======
-      Serial.println("goodbye");
->>>>>>> f49bccbfe8c3feb366771746b10f14e356f81c5c
       Serial.println(recievedMessage);
     }else if(command == 's'){
       while (Serial.available()) {
@@ -88,10 +84,6 @@ void loop()
 
       }
       else{
-<<<<<<< HEAD
-=======
-        Serial.println("MessageTX failed");
->>>>>>> f49bccbfe8c3feb366771746b10f14e356f81c5c
       }
     }
   }
