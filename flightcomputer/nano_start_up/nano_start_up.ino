@@ -70,8 +70,11 @@ void setup() {
   // put your setup code here, to run once:
   Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
   //pinMode(4, OUTPUT);
+  Serial.println("Waiting for character from pi"); //GTRO
   pi_go();
+  Serial.println("Go recieved, intitializing"); //GTRO
   initialize();
+  Serial.println("Initialization complete, diagnosing"); //GTRO
   diagnostic();
 }
 
@@ -112,6 +115,7 @@ void initialize(){
   
   //Transciever Setup
   //enable interrupt attach
+  Serial.println("Transciever Set Up"); //GTRO
   attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), transInterrupt, RISING);
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
@@ -120,6 +124,7 @@ void initialize(){
   rf95.setTxPower(TRX_POWER, false); //set output power
 
   //MPU Setup
+  Serial.println("MPU Set Up"); //GTRO
     mpu.initialize();
     // load and configure the DMP
     devStatus = mpu.dmpInitialize();
@@ -150,11 +155,13 @@ void initialize(){
   //End MPU Setup
 
   //Servo Setup
+  Serial.println("Servo Set Up"); //GTRO
   servoLeft.attach(SERVO_LEFT);
   servoRight.attach(SERVO_RIGHT);
   servoBack.attach(SERVO_BACK);
 
   //Pixy Initialization
+  Serial.println("PIXY Set Up"); //GTRO
   pixy.init();
 }
 
@@ -174,6 +181,7 @@ bool diagnostic(){
   // send "handshake" to pi and wait to recieve "sure"
   // if sure not recieved, wait 100 ms then send again
   // resend 3 times before throwing error
+  Serial.println("Pi Nano Handshake"); //GTRO
   int packet_loss = 0;
   for(packet_loss; packet_loss < 3; packet_loss += 1){
     Serial.println("handshake"); //sends impetus for handshake
@@ -185,7 +193,8 @@ bool diagnostic(){
   }
   //3 errors occured
   if (packet_loss == 3){
-    transmit_data("ERROR: PI to NANO Packet Loss\n");
+    //UNCO transmit_data("ERROR: PI to NANO Packet Loss\n");
+    Serial.println("PACKET ERROR"); //GTRO
     error_sum = (error_sum << 1) + 1;
   }
   else{
@@ -195,7 +204,8 @@ bool diagnostic(){
   //MPU check
   // verify MPU connection
   if(!mpu.testConnection()){
-    transmit_data("ERROR: IMU Connection Issues\n");
+    //UNCO transmit_data("ERROR: IMU Connection Issues\n");
+    Serial.println("MPU connection error"); //GTRO
     error_sum = (error_sum << 1) + 1;
   }
   else{
@@ -206,24 +216,27 @@ bool diagnostic(){
   //Servo 'Dance'
   servo_sweep();
   if (servoRightAngle != servoRight.read()){ //TODO:350 can we actually read from these servos?
-    transmit_data("ERROR: Right Servo Angle Error\n");
+    //UNCO transmit_data("ERROR: Right Servo Angle Error\n");
     //TODO:70 OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
+    Serial.println("Servo Right Error"); //GTRO
     error_sum = (error_sum << 1) + 1;
   }
   else{
     error_sum = (error_sum << 1); 
   }
   if (servoLeftAngle != servoLeft.read()){
-    transmit_data("ERROR: Left Servo Angle Error\n");
+    //UNCO transmit_data("ERROR: Left Servo Angle Error\n");
     //TODO:50 OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
+    Serial.println("Server Left Error"); //GTRO
     error_sum = (error_sum << 1) + 1;
   }
   else{
     error_sum = (error_sum << 1); 
   }
   if (servoBackAngle != servoBack.read()){
-    transmit_data("ERROR: Back Servo Angle Error\n");
+    //UNCO transmit_data("ERROR: Back Servo Angle Error\n");
     //TODO:30 OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
+    Serial.println("Servo Back Error"); //GTRO
     error_sum = (error_sum << 1) + 1;
   }
   else{
