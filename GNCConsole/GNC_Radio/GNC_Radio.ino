@@ -10,9 +10,11 @@
 #define CLIENT_ADDRESS 1
 #define SERVER_ADDRESS 2
 #define RFM95_CS 4
-
 #define RFM95_RST 2
 #define RFM95_INT 3
+String recievedMessage;
+char command;
+String msg;
 // Singleton instance of the radio driver
 RH_RF95 driver(RFM95_CS, RFM95_INT);
 //RH_RF95 driver(5, 2); // Rocket Scream Mini Ultra Pro with the RFM95W
@@ -27,7 +29,6 @@ void setup()
 //  pinMode(4, OUTPUT);
 //  digitalWrite(4, HIGH);
   Serial.begin(9600);
-  while (!Serial) ; // Wait for serial port to be available
   if (!manager.init())
     Serial.println("init failed");
   // Defaults after init are 434.0MHz, 13dBm, Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on
@@ -44,6 +45,7 @@ void setup()
   // Detection shows no activity on the channel before transmitting by setting
   // the CAD timeout to non-zero:
 //  driver.setCADTimeout(10000);
+Serial.println("Thunderbirds are go!");
 }
 uint8_t data[] = "And hello back to you";
 // Dont put this on the stack:
@@ -57,13 +59,32 @@ void loop()
     uint8_t from;
     if (manager.recvfromAck(buf, &len, &from))
     {
-      Serial.print("got request from : 0x");
+      /*Serial.print("got request from : 0x");
       Serial.print(from, HEX);
       Serial.print(": ");
-      Serial.println((char*)buf);
+      Serial.println((char*)buf);*/
       // Send a reply back to the originator client
-      if (!manager.sendtoWait(data, sizeof(data), from))
-        Serial.println("sendtoWait failed");
+      recievedMessage = (char*)buf;
+
+    }
+  }
+  if(Serial.available()){
+    command = Serial.read();
+    delay(2);
+    if(command == 'g'){
+      Serial.println(recievedMessage);
+    }else if(command == 's'){
+      while (Serial.available()) {
+        char c = Serial.read();  //gets one byte from serial buffer
+        msg += c; //makes the String readString
+        delay(2);  //slow looping to allow buffer to fill with next character
+      }
+      msg.toCharArray(data, sizeof(msg));
+      if (manager.sendtoWait(data, sizeof(data), SERVER_ADDRESS)){
+
+      }
+      else{
+      }
     }
   }
 }
