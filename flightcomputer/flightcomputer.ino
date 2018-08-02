@@ -151,12 +151,12 @@ uint8_t devStatus;      // return status after each device operation (0 = succes
 uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount;     // count of all bytes currently in FIFO
 uint8_t fifoBuffer[64]; // FIFO storage buffer
-volatile bool mpuInterrupt = false;  // indicates whether MPU interrupt pin has gone high
+volatile bool mpuInterruptFlag = false;  // indicates whether MPU interrupt pin has gone high
 
 
 // *** TRX ***
 
-volatile bool trxInterrupt =   false;  // indicates whether TRX interrupt pin has gone high
+volatile bool trxInterruptFlag =   false;  // indicates whether TRX interrupt pin has gone high
 #define RFM95_CS                  16 //TODO UNKNOWN WHAT DIS
 #define RFM95_RST                  5 //TODO UNKNOWN WHAT DIS (DIGITAL DATA PIN?)
 #define RFM95_INT                  4 //TODO UNKNOWN WHAT DIS (INTERRUPT PIN?)
@@ -254,7 +254,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
-  trxInterrupt = false;
+  trxInterruptFlag = false;
 
   switch(STATE){
   //0 SCRUB
@@ -273,7 +273,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
 
       //TODO:150 TX warning messages, etc
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // SCRUB never automatically changes to another state
         // the Diagnostics() function has authority to change state to GROUND_READY
       }
@@ -301,7 +301,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       //aileronWrite(aileronDeflect);
       elevatorWrite(elevatorDeflect);
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // Sense Launch Sensor Fusion
         if(accelForward>LAUNCH_ACCEL && altitude>ALTIMETER_UNCERTAINTY){ //TODO
             STATE = 2; //BOOST
@@ -325,7 +325,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       aileronWrite(aileronDeflect);
       elevatorWrite(elevatorDeflect);
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // IIST sensor //TODO reenable if used
         //boosterIIST = digitalRead(BOOSTER_IIST);
 
@@ -359,7 +359,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       aileronWrite(aileronDeflect);
       elevatorWrite(elevatorDeflect);
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // Timer Watchdog
         //TODO:600 make this
 
@@ -389,7 +389,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       // Autopilot for Stall/Spin recovery
       // Fast logging
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // Sense Stable Flight Sensor Fusion
         //TODO:520 logic behind this
         if(false){
@@ -426,7 +426,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       // Autopilot for Search pattern
       // Fast logging
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // Accurate Solution of Relative Position Sensor Fusion
         //TODO:530 logic behind this
         if(false){
@@ -471,7 +471,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       // Autopilot for Orbit pattern
       // Fast logging
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // Lost Sight of Target Sensor Fusion
         //TODO:550 logic behind this
         if(false){
@@ -516,7 +516,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       // if (!explosiveSafetyOn && fireEjectionCharge == "FIRE"), fire it.
       // Fast logging
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         // Landed? Sensor Fusion
         //TODO:570 logic behind this
         if(false){
@@ -543,7 +543,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       // Recovery Beacon?
       // Slow logging
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         //no auto state change from this state
       }
       break;
@@ -553,7 +553,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
 
       updateMET();
 
-      if (AUTOSTATE && !trxInterrupt){
+      if (AUTOSTATE && !trxInterruptFlag){
         STATE = 4; //revert to Stabilize
         firstTimeThroughState = true;
       }
@@ -607,7 +607,8 @@ void initialize(){
 
   //Transciever Setup
   //enable interrupt attach
-  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), transInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), trxInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(MPU_INT_PIN), mpuInterrupt, RISING);
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
   rf95.init(); //radio initialization
@@ -791,8 +792,7 @@ bool diagnostic(){
 }
 
 
-void genericControl()
-{
+void genericControl(){
   pitchDiff = currentPitch - pitchGoal;
   rollDiff =  currentRoll -  rollGoal;
   yawDiff =   currentYaw -   yawGoal;
@@ -829,12 +829,17 @@ void updateMET(){
 }
 
 
-void dmpDataReady() {
-    mpuInterrupt = true;
+void dmpDataReady() { //TODO what does/did this do?
+    mpuInterruptFlag = true;
 }
 
 
-void transInterrupt(){
+void mpuInterrupt(){
+
+}
+
+
+void trxInterrupt(){
   //TODO:500 get transciver data
   //STATE = sent_string;
 }
