@@ -1,46 +1,97 @@
-/*flightcomputer.ino
-* Autopilot, sensor fusion and TRX computer for the Intern Space Program:
-* Flying Squirrel mission.
-* Contributors:
-* Connor Jakubik, Ronnie Ankner, olenakotaco, Gabe R, Bluthman2
-*/
-#include <SPI.h>
-#include <Wire.h>
-#include <Servo.h>
-#include "Pixy.h"
+
+ 
+// I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
+// for both classes must be in the include path of your project
+
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
-#include <RH_RF95.h>
-#include <RHReliableDatagram.h>
 
-//using namespace std; //could
+#include <SPI.h>  
+#include <Pixy.h>
+#include<Wire.h>
+#include <Servo.h>
+ 
+ 
+ 
+//#include "MPU6050.h" // not necessary if using MotionApps include file
+ 
+// Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
+// is used in I2Cdev.h
+#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+    #include "Wire.h"
+#endif
+ 
+ 
+ 
+ 
+//int modecounter = 0;       //different modes display different data on LCD
+ 
+ 
+Pixy pixy; // This is the main Pixy object
+int pixyValue = 0;
+float pixyResponse = 0;
+float anglefrompixypixels = 0.0;
+ 
+int servoLeftPin = 6;      //digital pin 6
+Servo servoLeft;          //create servo
+int servoLeftAngle = 0;   // servo position in degrees
 
+int servoRightPin = 5;   //digital pin 5
+Servo servoRight;          //create servo
+int servoRightAngle = 0;    //servo position in degrees
 
-/* NOTE: Use "volatile" prefix for values directly modified inside an interrupt.
-*  do not set variables inside an interrupt unless they have this volatile prefix.
-*/
+int servoBackPin = 9;      //digital pin 9
+Servo servoBack;          //create servo
+int servoBackAngle = 0;    //servo position in degrees
+ 
+ 
+// class default I2C address is 0x68
+// specific I2C addresses may be passed as a parameter here
+// AD0 low = 0x68 (default for SparkFun breakout and InvenSense evaluation board)
+// AD0 high = 0x69
+MPU6050 mpu;
+//MPU6050 mpu(0x69); // <-- use for AD0 high
+ 
+/* =========================================================================
+   NOTE: In addition to connection 3.3v, GND, SDA, and SCL, this sketch
+   depends on the MPU-6050's INT pin being connected to the Arduino's
+   external interrupt #0 pin. On the Arduino Uno and Mega 2560, this is
+   digital I/O pin 2.
+ * ========================================================================= */
 
-
-// *** CONSTANT DEFINITIONS ****************************************************
-
-// *** PINS ***
-//#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO add if used
-#define SERVO_LEFT                 5 //Digital pin 5
-#define SERVO_RIGHT                6 //Digital pin 6
-#define SERVO_BACK                 9 //Digital pin 9
-#define MPU_INT_PIN                2 //MPU interrupt pin
-#define TRX_INT_PIN                3 //tranciever interrupt pin
-#define PIXY_CS_PIN                8
-#define SPI_PIN_MOSI              11
-#define SPI_PIN_MISO              12
-#define SPI_PIN_SCK               13
-
-#define PIXY_PIN                  A2
-#define I2C_SCL                   A4//TODO correct order
-#define I2C_SDA                   A5
-
-// *** I2C ***
-#define MPU_ADDR                0x68 //I2C Address of MPU 6050
+ 
+// uncomment "OUTPUT_READABLE_YAWPITCHROLL" if you want to see the yaw/
+// pitch/roll angles (in degrees) calculated from the quaternions coming
+// from the FIFO. Note this also requires gravity vector calculations.
+// Also note that yaw/pitch/roll angles suffer from gimbal lock (for
+// more info, see: http://en.wikipedia.org/wiki/Gimbal_lock)
+#define OUTPUT_READABLE_YAWPITCHROLL
+ 
+// uncomment "OUTPUT_READABLE_REALACCEL" if you want to see acceleration
+// components with gravity removed. This acceleration reference frame is
+// not compensated for orientation, so +X is always +X according to the
+// sensor, just without the effects of gravity. If you want acceleration
+// compensated for orientation, us OUTPUT_READABLE_WORLDACCEL instead.
+//#define OUTPUT_READABLE_REALACCEL
+ 
+ 
+// MPU control/status vars
+bool dmpReady = false;  // set true if DMP init was successful
+uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+uint16_t fifoCount;     // count of all bytes currently in FIFO
+uint8_t fifoBuffer[64]; // FIFO storage buffer
+ 
+// orientation/motion vars
+Quaternion q;           // [w, x, y, z]         quaternion container
+VectorInt16 aa;         // [x, y, z]            accel sensor measurements
+VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
+VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measurements
+VectorFloat gravity;    // [x, y, z]            gravity vector
+float euler[3];         // [psi, theta, phi]    Euler angle container
+float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+ 
 
 // *** SENSOR UNCERTAINTIES ***
 #define ALTIMETER_UNCERTAINTY    1.0 //meters //TODO tune
@@ -126,51 +177,49 @@
 
 // *** VARIABLES ***************************************************************
 
-Pixy pixy; // This is the main Pixy object
+//Pixy pixy; // This is the main Pixy object
 
 // *** IIST Sensors *** //TODO may exclude from glider
 bool boosterIIST = true;
 
 // *** SERVOS ***
-Servo servoLeft;          //create servo
-int servoLeftAngle = SERVO_CENTER;   // servo position in degrees
-
-Servo servoRight;          //create servo
-int servoRightAngle = SERVO_CENTER;    //servo position in degrees
-
-Servo servoBack;          //create servo
-int servoBackAngle = SERVO_CENTER;    //servo position in degrees
+//Servo servoLeft;          //create servo
+//int servoLeftAngle = SERVO_CENTER;   // servo position in degrees
+//
+//Servo servoRight;          //create servo
+//int servoRightAngle = SERVO_CENTER;    //servo position in degrees
+//
+//Servo servoBack;          //create servo
+//int servoBackAngle = SERVO_CENTER;    //servo position in degrees
 
 
 // *** MPU ***
 
-MPU6050 mpu; //mpu object
-bool dmpReady = false;  // set true if DMP init was successful
-uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
-uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
-uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
-uint16_t fifoCount;     // count of all bytes currently in FIFO
-uint8_t fifoBuffer[64]; // FIFO storage buffer
-volatile bool mpuInterruptFlag = false;  // indicates whether MPU interrupt pin has gone high
+//MPU6050 mpu; //mpu object
+//bool dmpReady = false;  // set true if DMP init was successful
+//uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+//uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+//uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+//uint16_t fifoCount;     // count of all bytes currently in FIFO
+//uint8_t fifoBuffer[64]; // FIFO storage buffer
+//volatile bool mpuInterruptFlag = false;  // indicates whether MPU interrupt pin has gone high
 
 
-// *** TRX ***
-
-volatile bool trxInterruptFlag =   false;  // indicates whether TRX interrupt pin has gone high
-#define RFM95_CS                  16 //TODO UNKNOWN WHAT DIS
-#define RFM95_RST                  5 //TODO UNKNOWN WHAT DIS (DIGITAL DATA PIN?)
-#define RFM95_INT                  4 //TODO UNKNOWN WHAT DIS (INTERRUPT PIN?)
-#define RF95_FREQ              915.0 //Transmit Frequency
-#define TRX_POWER                 23 //output power (5-23 dBm)
-#define CLIENT_ADDRESS             1 //TODO set from Pi handshake?
-#define SERVER_ADDRESS             2 //TODO set from Pi handshake?
-RH_RF95 rf95(RFM95_CS, RFM95_INT);    //Radio Driver Object
-RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
+//// *** TRX ***
+//
+//volatile bool trxInterruptFlag =   false;  // indicates whether TRX interrupt pin has gone high
+//#define RFM95_CS                  16 //TODO UNKNOWN WHAT DIS
+//#define RFM95_RST                  5 //TODO UNKNOWN WHAT DIS (DIGITAL DATA PIN?)
+//#define RFM95_INT                  4 //TODO UNKNOWN WHAT DIS (INTERRUPT PIN?)
+//#define RF95_FREQ              915.0 //Transmit Frequency
+//#define TRX_POWER                 23 //output power (5-23 dBm)
+//#define CLIENT_ADDRESS             1 //TODO set from Pi handshake?
+//#define SERVER_ADDRESS             2 //TODO set from Pi handshake?
+//RH_RF95 rf95(RFM95_CS, RFM95_INT);    //Radio Driver Object
+//RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
 
 //*** COMMUNICATIONS ***
 char output_string[250];
-char temp_str[20];
-
 
 // *** META FLIGHT VARIABLES ***
 // These values are more reliable and isolated from the volatile control flight variables.
@@ -218,48 +267,222 @@ volatile bool holdMET =                false; //whether or not to hold the elaps
 
 
 
-// *** FUNCTIONS ***************************************************************
+ 
+// ================================================================
+// ===               INTERRUPT DETECTION ROUTINE                ===
+// ================================================================
 
+//Interrupt Flag
+volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
+
+void dmpDataReady() {
+    mpuInterrupt = true;
+}
+ 
+ 
+ 
+// ================================================================
+// ===                      INITIAL SETUP                       ===
+// ================================================================
+ 
 void setup() {
-  //TODO:720 should we lock the mutux in this function?
-  //wait a little for any power fluctuations
-  //delay(SETUP_WAIT_TIME); <-- I believe the processor takes care of this
+ 
+    servoLeft.attach(servoLeftPin);
+    servoRight.attach(servoRightPin);
 
-  bool diagnosticPass = false;
+    
 
-  //pi_go();
-  //    wait for pi approval
-  //    When character recieved from pi, continue
-  //initialize();
-  //    Initialize all peripherals and communications
-  //    MPU setup
-  //    Pixy Setup
-  //    SPI and I2C setup
-  //diagnostic();
-  //    Check and diagnose crucial operations
-  //    sensor sanity check
-  //    servo check
-  //    Pixy check
-  //    commincation_handshake();
-  //         arduino to pi check; transciever check;
-  //Set_state_based_on_pass_fail();
+    
+ 
+    // join I2C bus (I2Cdev library doesn't do this automatically)
+    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+        Wire.begin();
+        TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
+    #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+        Fastwire::setup(400, true);
+    #endif
+ 
+    // initialize serial communication
+    // (115200 chosen because it is required for Teapot Demo output, but it's
+    // really up to you depending on your project)
+    Serial.begin(115200);
+    while (!Serial); // wait for Leonardo enumeration, others continue immediately
+ 
+    // NOTE: 8MHz or slower host processors, like the Teensy @ 3.3v or Ardunio
+    // Pro Mini running at 3.3v, cannot handle this baud rate reliably due to
+    // the baud timing being too misaligned with processor ticks. You must use
+    // 38400 or slower in these cases, or use some kind of external separate
+    // crystal solution for the UART timer.
+ 
+    // initialize device
+    Serial.println(F("Initializing I2C devices..."));
+    mpu.initialize();
+ 
+    // verify connection
+    Serial.println(F("Testing device connections..."));
 
-  Serial.begin(BAUD_RATE); //baud rate needs to be agreed upon
-  //driver.init() is Transceiver setup
-  pi_go();
-  initialize();
-  diagnosticPass = diagnostic();
-  STATE = (int)diagnosticPass; // 0 for fail, 1 for success
+    ///////////////////////////////////
+    //      Diagnose pixy
+    //////////////////////////////////
+    pixy.init();
+    Serial.println(F("Pixy initialized"));
+    
+    Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+    //pi_go();
+    STATE = diagnostic();
+    //update_state();
+
+    
+    
+
+    
+ 
+}
+
+void pi_go(){
+  // wait for ready
+    Serial.println(F("\nSend any character to begin"));
+    while (Serial.available() && Serial.read()); // empty buffer
+    while (!Serial.available());                 // wait for data from Pi serial
+    while (Serial.available() && Serial.read()); // empty buffer again
 }
 
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  trxInterruptFlag = false;
-  collectData();
-  make_string();
-  transmit_pi(output_string);
-  transmit_trx(output_string);
+ 
+bool diagnostic(){
+    int error_sum = 0;
+    // int error_sum is used as a bitset, where, when read as a binary number, it
+    // tells you exactly where your errors were, no matter the combination.
+    //error_sum = (error_sum << 1) + 1; pushes 1 bit onto string of bits for error
+    //error_sum = (error_sum << 1);  pushes 0 bit onto string of bits for no error
+    //^^^ this method allows for easy addition of error checking protocols without hard coding the decimal values
+    //and changing of order in code does not affect
+    // load and configure the DMP
+
+
+
+    ///////////////////////////////////
+    //      Diagnose MPU
+    //////////////////////////////////
+    Serial.println(F("Initializing DMP..."));
+    devStatus = mpu.dmpInitialize();
+    // supply your own gyro offsets here, scaled for min sensitivity
+    mpu.setXGyroOffset(220);
+    mpu.setYGyroOffset(76);
+    mpu.setZGyroOffset(-85);
+    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
+ 
+    // make sure it worked (returns 0 if so)
+    if (devStatus == 0) {
+        // turn on the DMP, now that it's ready
+        Serial.println(F("Enabling DMP..."));
+        mpu.setDMPEnabled(true);
+ 
+        // enable Arduino interrupt detection
+        Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
+        
+        attachInterrupt(0, dmpDataReady, RISING);
+        mpuIntStatus = mpu.getIntStatus();
+ 
+        // set our DMP Ready flag so the main loop() function knows it's okay to use it
+        Serial.println(F("DMP ready! Waiting for first interrupt..."));
+        dmpReady = true;
+ 
+        // get expected DMP packet size for later comparison
+        packetSize = mpu.dmpGetFIFOPacketSize();
+    } else {
+        // ERROR!
+        // 1 = initial memory load failed
+        // 2 = DMP configuration updates failed
+        // (if it's going to break, usually the code will be 1)
+        Serial.print(F("DMP Initialization failed (code "));
+        Serial.print(devStatus);
+        Serial.println(F(")"));
+    }
+    //MPU check
+    // verify MPU connection
+    if(!mpu.testConnection()){
+      //transmit_data("ERROR: IMU Connection Issues\n");
+      error_sum = (error_sum << 1) + 1;
+    }
+    else{
+      error_sum = (error_sum << 1);
+    }
+    
+  ///////////////////////////////////
+    //      Diagnose PI communication
+    //////////////////////////////////
+  // *** PI to nano handshake
+  // send "handshake" to pi and wait to recieve "sure"
+  // if sure not recieved, wait 100 ms then send again
+  // resend 3 times before throwing error
+  Serial.println(F("\nwaiting for handshake from pi "));
+  int packet_loss = 0;
+  for(packet_loss; packet_loss < 3; packet_loss += 1){
+    Serial.println("handshake"); //sends impetus for handshake
+    Serial.flush(); //waits for outgoing stream to complete
+    while(!Serial.available());
+    if (Serial.find("sure")){ //breaks from loop if 'sure' is found
+      break;
+    }
+  }
+  //3 errors occured
+  if (packet_loss == 3){
+    //transmit_data("ERROR: PI to NANO Packet Loss\n");
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1);
+  }
+
+  ///////////////////////////////////
+    //      Diagnose Servos
+    //////////////////////////////////
+  servo_sweep();
+  if (servoRightAngle != servoRight.read()){ //TODO:350 can we actually read from these servos?
+    //transmit_data("ERROR: Right Servo Angle Error\n");
+    //TODO:70 OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1);
+  }
+  if (servoLeftAngle != servoLeft.read()){
+    //transmit_data("ERROR: Left Servo Angle Error\n");
+    //TODO:50 OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1);
+  }
+  if (servoBackAngle != servoBack.read()){
+    //transmit_data("ERROR: Back Servo Angle Error\n");
+    //TODO:30 OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
+    error_sum = (error_sum << 1) + 1;
+  }
+  else{
+    error_sum = (error_sum << 1);
+  }
+
+  
+  ///////////////////////////////////
+    //      Diagnose Results
+    //////////////////////////////////
+  if (error_sum == 0){
+    //TODO:110 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
+    return true;
+  }
+  else{
+    //TODO:90 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). Error code: (error_sum in binary). SCRUB!
+    return false;
+  }
+  return false;
+}
+
+
+
+void update_state(){
+  //trxInterruptFlag = false;
 
   switch(STATE){
   //0 SCRUB
@@ -278,7 +501,8 @@ void loop() {
 
       //TODO:150 TX warning messages, etc
 
-      if (AUTOSTATE && !trxInterruptFlag){
+      //if (AUTOSTATE && !trxInterruptFlag){
+      if(AUTOSTATE){
         // SCRUB never automatically changes to another state
         // the Diagnostics() function has authority to change state to GROUND_READY
       }
@@ -306,7 +530,8 @@ void loop() {
       //aileronWrite(aileronDeflect);
       elevatorWrite(elevatorDeflect);
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+        if (AUTOSTATE){
         // Sense Launch Sensor Fusion
         if(accelForward>LAUNCH_ACCEL && altitude>ALTIMETER_UNCERTAINTY){ //TODO
             STATE = 2; //BOOST
@@ -330,7 +555,8 @@ void loop() {
       aileronWrite(aileronDeflect);
       elevatorWrite(elevatorDeflect);
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+        if (AUTOSTATE){
         // IIST sensor //TODO reenable if used
         //boosterIIST = digitalRead(BOOSTER_IIST);
 
@@ -364,7 +590,8 @@ void loop() {
       aileronWrite(aileronDeflect);
       elevatorWrite(elevatorDeflect);
 
-      if (AUTOSTATE && !trxInterruptFlag){
+      //if (AUTOSTATE && !trxInterruptFlag){
+      if (AUTOSTATE){
         // Timer Watchdog
         //TODO:600 make this
 
@@ -394,7 +621,8 @@ void loop() {
       // Autopilot for Stall/Spin recovery
       // Fast logging
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+        if (AUTOSTATE){
         // Sense Stable Flight Sensor Fusion
         //TODO:520 logic behind this
         if(false){
@@ -431,7 +659,8 @@ void loop() {
       // Autopilot for Search pattern
       // Fast logging
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+      if (AUTOSTATE){
         // Accurate Solution of Relative Position Sensor Fusion
         //TODO:530 logic behind this
         if(false){
@@ -476,7 +705,8 @@ void loop() {
       // Autopilot for Orbit pattern
       // Fast logging
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+        if (AUTOSTATE){
         // Lost Sight of Target Sensor Fusion
         //TODO:550 logic behind this
         if(false){
@@ -521,7 +751,8 @@ void loop() {
       // if (!explosiveSafetyOn && fireEjectionCharge == "FIRE"), fire it.
       // Fast logging
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+        if (AUTOSTATE){
         // Landed? Sensor Fusion
         //TODO:570 logic behind this
         if(false){
@@ -548,17 +779,18 @@ void loop() {
       // Recovery Beacon?
       // Slow logging
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+      if (AUTOSTATE){
         //no auto state change from this state
       }
       break;
-
-    default: // other than 0-8 *************************************************
+      default: // other than 0-8 *************************************************
       //TODO:10 Debug Error: what the hell? how did I get to a nonexistant state?
 
       updateMET();
 
-      if (AUTOSTATE && !trxInterruptFlag){
+//      if (AUTOSTATE && !trxInterruptFlag){
+      if (AUTOSTATE){
         STATE = 4; //revert to Stabilize
         firstTimeThroughState = true;
       }
@@ -566,236 +798,6 @@ void loop() {
   }
 }
 
-
-void mutux(int lock){
-  // Used to change whether or not to allow interrupts
-  if (lock == 1){
-    noInterrupts();
-  }
-  if (lock == 0){
-    interrupts();
-  }
-}
-
-
-void pi_go(){
-  // wait for ready
-    while (Serial.available() && Serial.read()); // empty buffer
-    while (!Serial.available());                 // wait for data from Pi serial
-    while (Serial.available() && Serial.read()); // empty buffer again
-}
-
-
-void transmit_trx(char* data){ // Send a message to rf95_server
-  //TODO: Adjust code to that from Gabe
-  uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
-  uint8_t len = sizeof(buf);
-  uint8_t from;
-  manager.sendtoWait(data, sizeof(data), SERVER_ADDRESS);
-
-  if(manager.recvfromAckTimeout(buf, &len, 2000, &from)){
-    //Sent successful, acknowledge recieved
-    //Serial.print("got reply from : 0x"); Serial.print(from, HEX);Serial.print(": "); Serial.println((char*)buf);
-  }
-  else{
-    //No acknowledge
-   // Serial.println("No reply, is rf95_reliable_datagram_server running?");
-  }
-}
-
-
-char recieve_trx(){
-  //TODO put recieve code here
-}
-
-
-void initialize(){
-
-  //Transciever Setup
-  //enable interrupt attach
-  attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), trxInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(MPU_INT_PIN), mpuInterrupt, RISING);
-  pinMode(RFM95_RST, OUTPUT);
-  digitalWrite(RFM95_RST, HIGH);
-  rf95.init(); //radio initialization
-  rf95.setFrequency(RF95_FREQ); //set frequency
-  rf95.setTxPower(TRX_POWER, false); //set output power
-
-  //MPU Setup
-    mpu.initialize();
-    // load and configure the DMP
-    devStatus = mpu.dmpInitialize();
-    // supply your own gyro offsets here, scaled for min sensitivity //TODO:760 tune these?
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
-    // make sure it worked (returns 0 if so)
-    if (devStatus == 0) {
-        // turn on the DMP, now that it's ready
-        mpu.setDMPEnabled(true);
-        // enable Arduino interrupt detection
-        attachInterrupt(digitalPinToInterrupt(MPU_INT_PIN), dmpDataReady, RISING);
-        mpuIntStatus = mpu.getIntStatus();
-        // set our DMP Ready flag so the main loop() function knows it's okay to use it
-        dmpReady = true;
-        // get expected DMP packet size for later comparison
-        packetSize = mpu.dmpGetFIFOPacketSize();
-    } else {
-        transmit_trx("ERROR: IMU Initialization Failed\n");
-    }
-    Wire.begin();
-    Wire.beginTransmission(MPU_ADDR);
-    Wire.write(0x6B);  // PWR_MGMT_1 register
-    Wire.write(0);     // set to zero (wakes up the MPU-6050)
-    Wire.endTransmission(true);
-  //End MPU Setup
-
-  //Servo Setup
-  servoLeft.attach(SERVO_LEFT);
-  servoRight.attach(SERVO_RIGHT);
-  servoBack.attach(SERVO_BACK);
-
-  //Pixy Initialization
-  pixy.init();
-}
-
-
-void servo_sweep(){
-  int pos = SERVO_CENTER;
-  for(pos; pos <= (SERVO_MAX); pos += 1){//Sweep up to max range
-    servoRight.write(pos);
-    servoLeft.write(pos);
-    servoBack.write(pos);
-    delay(25);
-  }
-  delay(500);
-  for(pos; pos >= (SERVO_MIN); pos -= 1){ //Sweep down to min range
-    servoRight.write(pos);
-    servoLeft.write(pos);
-    servoBack.write(pos);
-    delay(25);
-  }
-  delay(500);
-  for(pos; pos <= (SERVO_MAX); pos += 1){//Sweep up to max range
-    servoRight.write(pos);
-    servoLeft.write(pos);
-    servoBack.write(pos);
-    delay(25);
-  }
-  delay(500);
-  for(pos; pos >= (SERVO_CENTER); pos -= 1){ //Sweep down to start
-    servoRight.write(pos);
-    servoLeft.write(pos);
-    servoBack.write(pos);
-    delay(15);
-  }
-  delay(500);
-  for(pos; pos >= (SERVO_MIN); pos -= 1){ //Sweep down to min range
-    servoRight.write(pos);
-    servoLeft.write(pos);
-    servoBack.write(pos);
-    delay(15);
-  }
-  delay(500);
-  for(pos; pos <= (SERVO_CENTER); pos += 1){//Sweep up to start
-    servoRight.write(pos);
-    servoLeft.write(pos);
-    servoBack.write(pos);
-    delay(15);
-  }
-  servoRightAngle = (pos-1);
-  servoLeftAngle = (pos-1);
-  servoBackAngle = (pos-1);
-}
-
-
-bool diagnostic(){
-  int error_sum = 0;
-  // int error_sum is used as a bitset, where, when read as a binary number, it
-  // tells you exactly where your errors were, no matter the combination.
-  //error_sum = (error_sum << 1) + 1; pushes 1 bit onto string of bits for error
-  //error_sum = (error_sum << 1);  pushes 0 bit onto string of bits for no error
-  //^^^ this method allows for easy addition of error checking protocols without hard coding the decimal values
-  //and changing of order in code does not affect
-
-
-  //Tranciever Handshake
-
-  // *** PI to nano handshake
-  // send "handshake" to pi and wait to recieve "sure"
-  // if sure not recieved, wait 100 ms then send again
-  // resend 3 times before throwing error
-  int packet_loss = 0;
-  for(packet_loss; packet_loss < 3; packet_loss += 1){
-    Serial.println("handshake"); //sends impetus for handshake
-    Serial.flush(); //waits for outgoing stream to complete
-    while(!Serial.available());
-    if (Serial.find("sure")){ //breaks from loop if 'sure' is found
-      break;
-    }
-  }
-  //3 errors occured
-  if (packet_loss == 3){
-    transmit_trx("ERROR: PI to NANO Packet Loss\n");
-    error_sum = (error_sum << 1) + 1;
-  }
-  else{
-    error_sum = (error_sum << 1);
-  }
-
-  //MPU check
-  // verify MPU connection
-  if(!mpu.testConnection()){
-    transmit_trx("ERROR: IMU Connection Issues\n");
-    error_sum = (error_sum << 1) + 1;
-  }
-  else{
-    error_sum = (error_sum << 1);
-  }
-  //Verify MPU acc and gryo readings
-
-  //Servo 'Dance'
-  servo_sweep();
-  if (servoRightAngle != servoRight.read()){ //TODO:350 can we actually read from these servos?
-    transmit_trx("ERROR: Right Servo Angle Error\n");
-    //TODO:70 OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
-    error_sum = (error_sum << 1) + 1;
-  }
-  else{
-    error_sum = (error_sum << 1);
-  }
-  if (servoLeftAngle != servoLeft.read()){
-    transmit_trx("ERROR: Left Servo Angle Error\n");
-    //TODO:50 OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
-    error_sum = (error_sum << 1) + 1;
-  }
-  else{
-    error_sum = (error_sum << 1);
-  }
-  if (servoBackAngle != servoBack.read()){
-    transmit_trx("ERROR: Back Servo Angle Error\n");
-    //TODO:30 OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
-    error_sum = (error_sum << 1) + 1;
-  }
-  else{
-    error_sum = (error_sum << 1);
-  }
-
-  //TODO: PIXY verification
-
-
-  //Final Error Output
-  if (error_sum == 0){
-    //TODO:110 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). No errors, all clear. READY TO LAUNCH!
-    return true;
-  }
-  else{
-    //TODO:90 OUTPUT to TRANSCIEVER: Packet Loss was (packet_loss). Error code: (error_sum in binary). SCRUB!
-    return false;
-  }
-  return false;
-}
 
 
 void genericControl(){
@@ -835,184 +837,181 @@ void updateMET(){
 }
 
 
-void dmpDataReady() { //TODO what does/did this do?
-    mpuInterruptFlag = true;
+void servo_sweep(){
+  int numberofsweeps = 3;
+  for(int x = 0; x < numberofsweeps; x++)
+  {
+    int pos = 90;
+    for(pos; pos <= (180); pos += 1){//Sweep up to max range
+      servoRight.write(pos);
+      servoLeft.write(pos);
+      servoBack.write(pos);
+      Serial.print("wrote: ");
+      Serial.print(pos);
+      Serial.println(" to left servo");
+      delay(25);
+    }
+    delay(500);
+    for(pos; pos >= (0); pos -= 1){ //Sweep down to min range
+      servoRight.write(pos);
+      servoLeft.write(pos);
+      servoBack.write(pos);
+      Serial.print("wrote: ");
+      Serial.print(pos);
+      Serial.println(" to left servo");
+      delay(25);
+    }
+  }
+  
+
+  
 }
 
 
-void mpuInterrupt(){
-
+void writetoleftservo(int x){
+  servoLeft.write(x);
+}
+ 
+void writetorightservo(int x){
+  servoRight.write(x);
 }
 
-
-void trxInterrupt(){
-  //TODO:500 get transciver data
-  //STATE = sent_string;
+void writetobackservo(int x){
+  servoBack.write(x);
 }
-
 
 float setBarometerZero(){
   //TODO:710 resets the barometer to zero and returns the pressure value
   return -1.0f;
 }
-
-
-void collectData(){
-  //TODO:120 Populate the META FLIGHT VARIABLES with values from the volatile sets
-
+ 
+int detectobjectwithcamera(){
+   
+  //Pixy is transmittingo on Analog 1
+  pixyValue = analogRead(A1); 
+  //less than 15 because of noise on cable
+  if(pixyValue < 15)
+  {
+    anglefrompixypixels = 1000;
+  }else
+  {
+  //normalize over pixels on screen 0-760, 7.78 = half of FOV in inches, 15.57 = length of field of view in inches
+    anglefrompixypixels = ((pixyValue/760.0) * 15.56) - 7.78;
+  }
+  //print for debug
+  //Serial.println(anglefrompixypixels);
+  return anglefrompixypixels;
 }
-void transmit_pi(char* str){
-  Serial.println(str);
-}
-void make_string(){
-  //TODO put in true global variables for 'data'
-  //data         Precision          Max Char
-  //----------------------------------------
-  //STATE          1                    1
-  //ACCX           0.1                  6
-  //AXXY           0.1                  6
-  //ACCZ           0.1                  6
-  //YAW            0.1                  5
-  //PITCH          0.1                  5
-  //ROLL           0.1                  5
-  //ALT            0.01                 6
-  //TEMP           1                    3
-  //M.E.T          0.01                 7
-  //PIXY           1                    2
-  //OFlg           1                    2
-  // + #*del       1                   12
-  //---------------------------------------
-  //Total         n/a                  66
 
-  char del[] = "\t";
-  bool overflw_flg = 0;
-  output_string[0] = '\0'; //clear string
-  //STATE
-  if (conv_to_str(STATE,0) > 2){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //ACCX
-  if (conv_to_str(ACCX,1) > 6){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //ACCY
-  if (conv_to_str(ACCY,1) > 6){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //ACCZ
-  if (conv_to_str(ACCZ,1) > 6){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //YAW
-  if (conv_to_str(YAW,1) > 5){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //PITCH
-  if (conv_to_str(PITCH,1) > 5){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-   //ROLL
-  if (conv_to_str(ROLL,1) > 5){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //ALT
-  if (conv_to_str(ALT,2) > 6){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //TEMP
-  if (conv_to_str(TEMP,0) > 3){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //M.E.T
-  if (conv_to_str(MET,2) > 7){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //PIXY
-  if (conv_to_str(PIXY,0) > 2){
-    overflw_flg = 1;
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //OFlg
-  if (overflw_flg){ //Overflow occurred
-    conv_to_str(1,0)
-  }
-  if (!overflw_flg) //No overflow
-    conv_to_str(0,0)
-  }
-  strcat(output_string, temp_str);
-  strcat(output_string, del);
-  //String Complete! Ready to Transmit!
+
+
+
+
+
+// ================================================================
+// ===                    MAIN PROGRAM LOOP                     ===
+// ================================================================
+void loop() {
+ 
+    // if programming failed, don't try to do anything
+    if (!dmpReady) return;
+ 
+    // wait for MPU interrupt or extra packet(s) available
+    while (!mpuInterrupt && fifoCount < packetSize) {
+
+        /////////////////////////
+        //  print current state
+        /////////////////////
+         Serial.print("current state: ");
+         Serial.println(STATE);
+        // other program behavior stuff here
+        // .
+        // .
+        // .
+        // if you are really paranoid you can frequently test in between other
+        // stuff to see if mpuInterrupt is true, and if so, "break;" from the
+        // while() loop to immediately process the MPU data
+        // .
+        // .
+        // .
+    }
+ 
+ 
+   
+ 
+    // reset interrupt flag and get INT_STATUS byte
+    mpuInterrupt = false;
+    mpuIntStatus = mpu.getIntStatus();
+ 
+    // get current FIFO count
+    fifoCount = mpu.getFIFOCount();
+ 
+    // check for overflow (this should never happen unless our code is too inefficient)
+    if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+        // reset so we can continue cleanly
+        mpu.resetFIFO();
+        Serial.println(F("FIFO overflow!"));
+ 
+    // otherwise, check for DMP data ready interrupt (this should happen frequently)
+    } else if (mpuIntStatus & 0x02) {
+        // wait for correct available data length, should be a VERY short wait
+        while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+ 
+        // read a packet from FIFO
+        mpu.getFIFOBytes(fifoBuffer, packetSize);
+
+        ////////////////////////////////
+        //  Object Detection is here because
+        //  because the interrupts have a greater possesion
+        //  of the processor, so the cam updates on the interrupts too. 
+        //////////////////////////////
+        pixyResponse = detectobjectwithcamera();
+
+         ////////////////////////////////
+        //  update_state is here because
+        //  because the interrupts have a greater possesion
+        //  of the processor, so the states update on the interrupts too. 
+        //////////////////////////////
+        update_state();
+       
+       
+        // (this lets us immediately read more without waiting for an interrupt)
+        fifoCount -= packetSize;
+ 
+        #ifdef OUTPUT_READABLE_YAWPITCHROLL
+            // display Euler angles in degrees
+            mpu.dmpGetQuaternion(&q, fifoBuffer);
+            mpu.dmpGetGravity(&gravity, &q);
+            mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+            Serial.print("ypr\t");
+            Serial.print(ypr[0] * 180/M_PI);
+            Serial.print("\t");
+            Serial.print(ypr[1] * 180/M_PI);
+            Serial.print("\t");
+            Serial.println(ypr[2] );
+ 
+            writetoleftservo( int( ypr[2]*45.0 + 90) ) ;
+            writetorightservo( int( ypr[2]*45.0 + 90) ) ;
+            writetobackservo( int( ypr[2]*45.0 + 90) ) ;
+            Serial.print("Left Servo: ");
+            Serial.println( int( ypr[2]*45.0 + 90) ) ;
+        #endif
+ 
+        #ifdef OUTPUT_READABLE_REALACCEL
+            // display real acceleration, adjusted to remove gravity
+            mpu.dmpGetQuaternion(&q, fifoBuffer);
+            mpu.dmpGetAccel(&aa, fifoBuffer);
+            mpu.dmpGetGravity(&gravity, &q);
+            mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+            Serial.print("areal\t");
+            Serial.print(aaReal.x);
+            Serial.print("\t");
+            Serial.print(aaReal.y);
+            Serial.print("\t");
+            Serial.println(aaReal.z);
+        #endif
+ 
   
-}
-
-int conv_to_str(float data, int prec){
-int mag= 0;
-int start = 0;
-int lop, len;
-  temp_str[0] = '\0'; //Clear temp string
-  if (data < 0){ //Negative numbers
-    data = -data;
-    start = 1;
-  }
-  while (data > 10){ //Get power of 10 (above 0)
-    data = data/10;
-    mag = mag + 1;
-  }
-  len = mag+ prec + start + 2;
-  if (start == 1){
-    temp_str[0] = '-';
-  }
-  for(lop = start; lop < len; lop += 1){ //generate string
-    if (lop == mag + start + 1){
-      temp_str[lop] = '.';
-    }
-    else{
-      temp_str[lop] = (int)data + '0';
-      data = data - (int)data;
-      data = data*10;
-    }
-  }
-  temp_str[len] = '\0';
-  return len;
-}
-
-/*
-ARDUINO GOTO ---
-
-label:
-
-goto label; // sends program flow to the label
-
-Example Code
-
-for(byte r = 0; r < 255; r++){
-    for(byte g = 255; g > 0; g--){
-        for(byte b = 0; b < 255; b++){
-            if (analogRead(0) > 250){ goto bailout;}
-            // more statements ...
-        }
+ 
     }
 }
-
-bailout:*/
