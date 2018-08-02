@@ -1,0 +1,39 @@
+//Pixy is communicating over Analog. 
+//It will return 1000 if object is not in view
+//It will return a value in degrees -7.78 to 7.78 
+
+#include "Pixy.h"
+
+//Declare pixy
+Pixy pixy;
+
+//Angle in degrees glider is from rocket in view.
+float anglefrompixypixels = 0.0;
+
+void setup()
+{
+  Serial.begin(9600); // 9600 baud for the serial *console* 
+  Serial.print("Starting...\n");
+
+  //Initialize Pixy(turn on )
+  pixy.init();
+}
+
+
+void loop()
+{
+  //Pixy is transmittingo on Analog 1
+  int pixyValue = analogRead(A1); 
+  //less than 15 because of noise on cable
+  if(pixyValue < 15)
+  {
+    anglefrompixypixels = 1000;
+  }else
+  {
+  //normalize over pixels on screen 0-760, 7.78 = half of FOV in inches, 15.57 = length of field of view in inches
+    anglefrompixypixels = ((pixyValue/760.0) * 15.56) - 7.78;
+  }
+  //print for debug
+  Serial.println(anglefrompixypixels);
+}
+
