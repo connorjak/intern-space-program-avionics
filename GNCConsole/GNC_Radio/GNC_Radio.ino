@@ -48,6 +48,7 @@ void setup()
 Serial.println("Thunderbirds are go!");
 }
 uint8_t data[] = "And hello back to you";
+uint8_t testmsg[] = "Response"
 // Dont put this on the stack:
 uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
 void loop()
@@ -81,6 +82,13 @@ void loop()
       }
       msg.toCharArray(data, sizeof(msg));
       if (manager.sendtoWait(data, sizeof(data), SERVER_ADDRESS)){
+
+      }
+      else{
+      }
+    }
+    else if (command == 't'){
+      if (manager.sendtoWait(testmsg, sizeof(data), SERVER_ADDRESS)){
 
       }
       else{
