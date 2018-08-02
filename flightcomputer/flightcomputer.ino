@@ -255,8 +255,11 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
   trxInterruptFlag = false;
+  collectData();
+  make_string();
+  transmit_pi(output_string);
+  transmit_trx(output_string);
 
   switch(STATE){
   //0 SCRUB
@@ -583,7 +586,8 @@ void pi_go(){
 }
 
 
-void transmit_data(char* data){ // Send a message to rf95_server
+void transmit_trx(char* data){ // Send a message to rf95_server
+  //TODO: Adjust code to that from Gabe
   uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
   uint8_t len = sizeof(buf);
   uint8_t from;
@@ -600,7 +604,7 @@ void transmit_data(char* data){ // Send a message to rf95_server
 }
 
 
-char recieve_data(){
+char recieve_trx(){
   //TODO put recieve code here
 }
 
@@ -638,7 +642,7 @@ void initialize(){
         // get expected DMP packet size for later comparison
         packetSize = mpu.dmpGetFIFOPacketSize();
     } else {
-        transmit_data("ERROR: IMU Initialization Failed\n");
+        transmit_trx("ERROR: IMU Initialization Failed\n");
     }
     Wire.begin();
     Wire.beginTransmission(MPU_ADDR);
@@ -733,7 +737,7 @@ bool diagnostic(){
   }
   //3 errors occured
   if (packet_loss == 3){
-    transmit_data("ERROR: PI to NANO Packet Loss\n");
+    transmit_trx("ERROR: PI to NANO Packet Loss\n");
     error_sum = (error_sum << 1) + 1;
   }
   else{
@@ -743,7 +747,7 @@ bool diagnostic(){
   //MPU check
   // verify MPU connection
   if(!mpu.testConnection()){
-    transmit_data("ERROR: IMU Connection Issues\n");
+    transmit_trx("ERROR: IMU Connection Issues\n");
     error_sum = (error_sum << 1) + 1;
   }
   else{
@@ -754,7 +758,7 @@ bool diagnostic(){
   //Servo 'Dance'
   servo_sweep();
   if (servoRightAngle != servoRight.read()){ //TODO:350 can we actually read from these servos?
-    transmit_data("ERROR: Right Servo Angle Error\n");
+    transmit_trx("ERROR: Right Servo Angle Error\n");
     //TODO:70 OUTPUT TO TRANSCIEVER: ERROR right servo: servoRight.read() angle off by (servoRight.read() - SERVO_CENTER)
     error_sum = (error_sum << 1) + 1;
   }
@@ -762,7 +766,7 @@ bool diagnostic(){
     error_sum = (error_sum << 1);
   }
   if (servoLeftAngle != servoLeft.read()){
-    transmit_data("ERROR: Left Servo Angle Error\n");
+    transmit_trx("ERROR: Left Servo Angle Error\n");
     //TODO:50 OUTPUT TO TRANSCIEVER: ERROR left servo: servoLeft.read() angle off by (servoLeft.read() - SERVO_CENTER)
     error_sum = (error_sum << 1) + 1;
   }
@@ -770,7 +774,7 @@ bool diagnostic(){
     error_sum = (error_sum << 1);
   }
   if (servoBackAngle != servoBack.read()){
-    transmit_data("ERROR: Back Servo Angle Error\n");
+    transmit_trx("ERROR: Back Servo Angle Error\n");
     //TODO:30 OUTPUT TO TRANSCIEVER: ERROR back servo: servoBack.read() angle off by (servoBack.read() - SERVO_CENTER)
     error_sum = (error_sum << 1) + 1;
   }
@@ -857,15 +861,116 @@ void collectData(){
   //TODO:120 Populate the META FLIGHT VARIABLES with values from the volatile sets
 
 }
-
+void transmit_pi(char* str){
+  Serial.println(str);
+}
 void make_string(){
+  //TODO put in true global variables for 'data'
+  //data         Precision          Max Char
+  //----------------------------------------
+  //STATE          1                    1
+  //ACCX           0.1                  6
+  //AXXY           0.1                  6
+  //ACCZ           0.1                  6
+  //YAW            0.1                  5
+  //PITCH          0.1                  5
+  //ROLL           0.1                  5
+  //ALT            0.01                 6
+  //TEMP           1                    3
+  //M.E.T          0.01                 7
+  //PIXY           1                    2
+  //OFlg           1                    2
+  // + #*del       1                   12
+  //---------------------------------------
+  //Total         n/a                  66
 
+  char del[] = "\t";
+  bool overflw_flg = 0;
+  output_string[0] = '\0'; //clear string
+  //STATE
+  if (conv_to_str(STATE,0) > 2){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //ACCX
+  if (conv_to_str(ACCX,1) > 6){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //ACCY
+  if (conv_to_str(ACCY,1) > 6){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //ACCZ
+  if (conv_to_str(ACCZ,1) > 6){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //YAW
+  if (conv_to_str(YAW,1) > 5){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //PITCH
+  if (conv_to_str(PITCH,1) > 5){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+   //ROLL
+  if (conv_to_str(ROLL,1) > 5){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //ALT
+  if (conv_to_str(ALT,2) > 6){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //TEMP
+  if (conv_to_str(TEMP,0) > 3){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //M.E.T
+  if (conv_to_str(MET,2) > 7){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //PIXY
+  if (conv_to_str(PIXY,0) > 2){
+    overflw_flg = 1;
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //OFlg
+  if (overflw_flg){ //Overflow occurred
+    conv_to_str(1,0)
+  }
+  if (!overflw_flg) //No overflow
+    conv_to_str(0,0)
+  }
+  strcat(output_string, temp_str);
+  strcat(output_string, del);
+  //String Complete! Ready to Transmit!
+  
 }
 
-void conv_to_str(float data, int prec){
+int conv_to_str(float data, int prec){
 int mag= 0;
 int start = 0;
 int lop, len;
+  temp_str[0] = '\0'; //Clear temp string
   if (data < 0){ //Negative numbers
     data = -data;
     start = 1;
@@ -889,6 +994,7 @@ int lop, len;
     }
   }
   temp_str[len] = '\0';
+  return len;
 }
 
 /*
