@@ -24,20 +24,26 @@
 // *** CONSTANT DEFINITIONS ****************************************************
 
 // *** PINS ***
-#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO:770 update to reflect actual pin
-#define I2C_SCL                   -1 //Digital pin #  //TODO:780 update to reflect actual pin
-#define I2C_SDA                   -1 //Digital pin #  //TODO:790 update to reflect actual pin
-#define SERVO_LEFT                 9 //Digital pin 9
-#define SERVO_RIGHT               10 //Digital pin 10
-#define SERVO_BACK                11 //Digital pin 10
+//#define BOOSTER_IIST              A6 //Analog  pin 6  //TODO add if used
+#define SERVO_LEFT                 5 //Digital pin 5
+#define SERVO_RIGHT                6 //Digital pin 6
+#define SERVO_BACK                 9 //Digital pin 9
 #define MPU_INT_PIN                2 //MPU interrupt pin
 #define TRX_INT_PIN                3 //tranciever interrupt pin
+#define PIXY_CS_PIN                8
+#define SPI_PIN_MOSI              11
+#define SPI_PIN_MISO              12
+#define SPI_PIN_SCK               13
+
+#define PIXY_PIN                  A2
+#define I2C_SCL                   A4//TODO correct order
+#define I2C_SDA                   A5
 
 // *** I2C ***
-#define MPU_ADDR             0000000 //I2C Address of MPU //TODO update to reflect actual address
+#define MPU_ADDR                0x68 //I2C Address of MPU 6050
 
 // *** SENSOR UNCERTAINTIES ***
-#define ALTIMETER_UNCERTAINTY    1.0 //meters
+#define ALTIMETER_UNCERTAINTY    1.0 //meters //TODO tune
 
 #define PITCH_UNCERTAINTY        0.5 //degrees
 #define ROLL_UNCERTAINTY         0.5 //degrees
@@ -82,12 +88,15 @@
 #define DEFAULT_PITCH_GOAL_5   -10.0 //degrees
 #define DEFAULT_ROLL_GOAL_5    -30.0 //degrees
 #define DEFAULT_YAW_GOAL_5       0.0 //degrees (NORTH)
+#define YAW_RATE_5              20.0 //degrees per second
 #define MINTIME_5                0.0 //seconds
 #define MAXTIME_5          9000000.0 //seconds
 //6 ORBIT
 #define DEFAULT_PITCH_GOAL_6   -10.0 //degrees
 #define DEFAULT_ROLL_GOAL_6    -30.0 //degrees
 #define DEFAULT_YAW_GOAL_6       0.0 //degrees (NORTH)
+#define YAW_RATE_MIN_6           2.0 //degrees per second
+#define YAW_RATE_MAX_6          40.0 //degrees per second
 #define MINTIME_6                0.0 //seconds
 #define MAXTIME_6          9000000.0 //seconds
 //7 RECOVER_ABORT
@@ -147,7 +156,7 @@ volatile bool mpuInterrupt = false;  // indicates whether MPU interrupt pin has 
 
 // *** TRX ***
 
-volatile bool trxInterrupt = false;  // indicates whether TRX interrupt pin has gone high
+volatile bool trxInterrupt =   false;  // indicates whether TRX interrupt pin has gone high
 #define RFM95_CS                  16 //TODO UNKNOWN WHAT DIS
 #define RFM95_RST                  5 //TODO UNKNOWN WHAT DIS (DIGITAL DATA PIN?)
 #define RFM95_INT                  4 //TODO UNKNOWN WHAT DIS (INTERRUPT PIN?)
@@ -158,11 +167,8 @@ volatile bool trxInterrupt = false;  // indicates whether TRX interrupt pin has 
 RH_RF95 rf95(RFM95_CS, RFM95_INT);    //Radio Driver Object
 RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
 
-<<<<<<< HEAD
 //*** COMMUNICATIONS ***
 char output_string[250];
-=======
->>>>>>> 65ef011af5c3b7eb6dd4da5ed02abe81969ccf59
 
 // *** META FLIGHT VARIABLES ***
 // These values are more reliable and isolated from the volatile control flight variables.
@@ -189,6 +195,10 @@ volatile long millisMETOffset =          0; //milliseconds, Offset = millis when
 volatile float pitchGoal =       DEFAULT_PITCH_GOAL_4; //commanded pitch goal, degrees, above the horizon
 volatile float rollGoal =        DEFAULT_PITCH_GOAL_4; //commanded roll goal, degrees, left wing above horizon
 volatile float yawGoal =         DEFAULT_PITCH_GOAL_4; //commanded yaw goal, degrees, compass reading for forward
+
+float pitchDiff =                      0.0;
+float rollDiff =                       0.0;
+float yawDiff =                        0.0;
 
 volatile float canardDeflect =   CANARD_DEFLECT_0;   //commanded aileron deflection in canard mode, positive is up from wing
 volatile float elevatorDeflect = ELEVATOR_DEFLECT_0;   //commanded elevator deflection, positive is up from wing
@@ -279,7 +289,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         millisMETOffset = millis();
       }
       else{
-        millMET = millis()-millisMETOffset;
+        updateMET();
       }
 
       //TODO:420 following
@@ -306,7 +316,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         elevatorDeflect = ELEVATOR_DEFLECT_2;
       }
 
-      millMET = millis()-millisMETOffset;
+      updateMET();
 
       //TODO:430 following
       // Fast logging
@@ -316,16 +326,16 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
       elevatorWrite(elevatorDeflect);
 
       if (AUTOSTATE && !trxInterrupt){
-        // IIST sensor
-        boosterIIST = digitalRead(BOOSTER_IIST);
+        // IIST sensor //TODO reenable if used
+        //boosterIIST = digitalRead(BOOSTER_IIST);
 
         // Sense Ejection Sensor Fusion
         if(abs(accelForward)>SEP_ACCEL && altitude>MIN_SEP_ALTITUDE){
-            if(!boosterIIST) //if booster is not still there
-            {
-                STATE = 3; // SEPARATE
-                firstTimeThroughState = true;
-            }
+            //if(!boosterIIST) //if booster is not still there //TODO reenable if used
+            //{
+            //    STATE = 3; // SEPARATE
+            //    firstTimeThroughState = true;
+            //}
         }
 
         // Timer Watchdog
@@ -340,7 +350,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         elevatorDeflect = ELEVATOR_DEFLECT_3;
       }
 
-      millMET = millis()-millisMETOffset;
+      updateMET();
 
       //TODO:440 following
       // Fast logging
@@ -371,7 +381,9 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         yawGoal =   DEFAULT_YAW_GOAL_4;
       }
 
-      millMET = millis()-millisMETOffset;
+      updateMET();
+
+      genericControl();
 
       //TODO:450 following
       // Autopilot for Stall/Spin recovery
@@ -404,10 +416,11 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         pitchGoal = DEFAULT_PITCH_GOAL_5;
         rollGoal =  DEFAULT_ROLL_GOAL_5;
         yawGoal =   DEFAULT_YAW_GOAL_5;
-
       }
 
-      millMET += millis()-millisMETOffset;
+      updateMET();
+
+      genericControl();
 
       //TODO:460 following
       // Autopilot for Search pattern
@@ -450,7 +463,9 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
 
       }
 
-      millMET = millis()-millisMETOffset;
+      updateMET();
+
+      genericControl();
 
       //TODO:470 following
       // Autopilot for Orbit pattern
@@ -492,7 +507,9 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         yawGoal =   DEFAULT_YAW_GOAL_7;
       }
 
-      millMET = millis()-millisMETOffset;
+      updateMET();
+
+      genericControl();
 
       //TODO:480 following
       // Autopilot for Abort
@@ -517,7 +534,9 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
         //TODO:740 things
       }
 
-      millMET = millis()-millisMETOffset;
+      updateMET();
+
+      genericControl();
 
       //TODO:490 following
       // Some shutdown steps (especially for servos)
@@ -532,7 +551,7 @@ loop_start: collectData(); //TODO:510 is this just a vestige of the GOTO stuff?
     default: // other than 0-8 *************************************************
       //TODO:10 Debug Error: what the hell? how did I get to a nonexistant state?
 
-      millMET = millis()-millisMETOffset;
+      updateMET();
 
       if (AUTOSTATE && !trxInterrupt){
         STATE = 4; //revert to Stabilize
@@ -772,25 +791,41 @@ bool diagnostic(){
 }
 
 
+void genericControl()
+{
+  pitchDiff = currentPitch - pitchGoal;
+  rollDiff =  currentRoll -  rollGoal;
+  yawDiff =   currentYaw -   yawGoal;
+
+  elevatorWrite(pitchDiff);
+  aileronWrite(rollDiff);//TODO check direction
+}
+
+
 void aileronWrite(float aileronDeflection){
-  servoLeftAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*aileronDeflection);
-  servoRightAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*aileronDeflection); //TODO:360 check direction
+  servoLeftAngle =  constrain(SERVO_CENTER + (int)(SERVO_AILERON_MULT*aileronDeflection), SERVO_MIN, SERVO_MAX);
+  servoRightAngle = constrain(SERVO_CENTER + (int)(SERVO_AILERON_MULT*aileronDeflection), SERVO_MIN, SERVO_MAX); //TODO:360 check direction
   servoLeft.write(servoLeftAngle);
   servoRight.write(servoRightAngle);
 }
 
 
 void elevatorWrite(float elevatorDeflection){
-  servoBackAngle = SERVO_CENTER + (int)(SERVO_ELEVATOR_MULT*elevatorDeflection);//TODO:370 check direction
+  servoBackAngle = constrain(SERVO_CENTER + (int)(SERVO_ELEVATOR_MULT*elevatorDeflection), SERVO_MIN, SERVO_MAX);//TODO:370 check direction
   servoBack.write(servoBackAngle);
 }
 
 
 void canardWrite(float canardDeflection){
-  servoLeftAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*canardDeflection);//TODO:370 check direction
-  servoRightAngle = SERVO_CENTER + (int)(SERVO_AILERON_MULT*canardDeflection);//TODO:370 check direction
+  servoLeftAngle =  constrain(SERVO_CENTER + (int)(SERVO_AILERON_MULT*canardDeflection), SERVO_MIN, SERVO_MAX);//TODO:370 check direction
+  servoRightAngle = constrain(SERVO_CENTER + (int)(SERVO_AILERON_MULT*canardDeflection), SERVO_MIN, SERVO_MAX);//TODO:370 check direction
   servoLeft.write(servoLeftAngle);
   servoRight.write(servoRightAngle);
+}
+
+
+void updateMET(){
+  millMET = millis()-millisMETOffset;
 }
 
 
@@ -813,11 +848,11 @@ float setBarometerZero(){
 
 void collectData(){
   //TODO:120 Populate the META FLIGHT VARIABLES with values from the volatile sets
-  
+
 }
 
 void make_string(){
-  
+
 }
 /*
 ARDUINO GOTO ---
