@@ -169,6 +169,8 @@ RHReliableDatagram manager(rf95, CLIENT_ADDRESS); //Radio Manager Object
 
 //*** COMMUNICATIONS ***
 char output_string[250];
+char temp_str[20];
+
 
 // *** META FLIGHT VARIABLES ***
 // These values are more reliable and isolated from the volatile control flight variables.
@@ -859,6 +861,36 @@ void collectData(){
 void make_string(){
 
 }
+
+void conv_to_str(float data, int prec){
+int mag= 0;
+int start = 0;
+int lop, len;
+  if (data < 0){ //Negative numbers
+    data = -data;
+    start = 1;
+  }
+  while (data > 10){ //Get power of 10 (above 0)
+    data = data/10;
+    mag = mag + 1;
+  }
+  len = mag+ prec + start + 2;
+  if (start == 1){
+    temp_str[0] = '-';
+  }
+  for(lop = start; lop < len; lop += 1){ //generate string
+    if (lop == mag + start + 1){
+      temp_str[lop] = '.';
+    }
+    else{
+      temp_str[lop] = (int)data + '0';
+      data = data - (int)data;
+      data = data*10;
+    }
+  }
+  temp_str[len] = '\0';
+}
+
 /*
 ARDUINO GOTO ---
 
