@@ -44,10 +44,12 @@ void setup()
   // Detection shows no activity on the channel before transmitting by setting
   // the CAD timeout to non-zero:
 //  driver.setCADTimeout(10000);
+driver.setTxPower(23, false);
 }
 uint8_t data[] = "And hello back to you";
 // Dont put this on the stack:
 uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
+
 void loop()
 {
   if (manager.available())
@@ -61,6 +63,10 @@ void loop()
       Serial.print(from, HEX);
       Serial.print(": ");
       Serial.println((char*)buf);
+      Serial.print("RSSI: ");
+      Serial.println(driver.lastRssi(), DEC);
+      Serial.print("SNR: ");
+      Serial.println(driver.lastSNR(), DEC);
       // Send a reply back to the originator client
       if (!manager.sendtoWait(data, sizeof(data), from))
         Serial.println("sendtoWait failed");

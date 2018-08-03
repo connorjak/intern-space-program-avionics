@@ -44,6 +44,8 @@ void setup()
   // Detection shows no activity on the channel before transmitting by setting
   // the CAD timeout to non-zero:
 //  driver.setCADTimeout(10000);
+driver.setTxPower(23, false);
+
 }
 uint8_t data[] = "Hello World!";
 // Dont put this on the stack:
