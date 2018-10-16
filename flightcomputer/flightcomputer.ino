@@ -58,7 +58,7 @@
 #define ELEVATOR_DEFLECT_0       0.0 //degrees
 #define AILERON_DEFLECT_0        0.0 //degrees
 //1 GROUND_READY
-#define CANARD_DEFLECT_1         9.0 //degrees //TODO check this
+#define CANARD_DEFLECT_1         0.0 //degrees //TODO check this
 #define ELEVATOR_DEFLECT_1       0.0 //degrees
 #define AILERON_DEFLECT_1        0.0 //degrees
 #define ALTIMETER_GROUNDSAFE    15.0 //meters, the altitude at which launch definitely happened
@@ -66,7 +66,7 @@
 #define MINTIME_1                0.0 //seconds
 #define MAXTIME_1          9000000.0 //seconds
 //2 BOOST
-#define CANARD_DEFLECT_2         9.0 //degrees //TODO check this
+#define CANARD_DEFLECT_2         0.0 //degrees //TODO check this
 #define ELEVATOR_DEFLECT_2       0.0 //degrees
 #define AILERON_DEFLECT_2        0.0 //degrees
 #define SEP_ACCEL             1200.0 // m/s^2, the forward acceleration at which separation definitely happened
@@ -237,7 +237,7 @@ void setup() {
 
   //pi_go();
   //    wait for pi approval
-  //    When character recieved from pi, continue
+  //    When any character recieved from pi (via serial connection), continue
   //initialize();
   //    Initialize all peripherals and communications
   //    MPU setup
@@ -869,11 +869,17 @@ void collectData(){
   //TODO:120 Populate the META FLIGHT VARIABLES with values from the volatile sets
 
 }
+
+
 void transmit_pi(char* str){
+  //Transmits a string to serial print (wire to the pi)
   Serial.println(str);
 }
+
+
 void make_string(){
   //TODO put in true global variables for 'data'
+  //Definition of the packet sent to the Pi for data logging:
   //data         Precision          Max Char
   //----------------------------------------
   //STATE          1                    1
@@ -931,7 +937,7 @@ void make_string(){
   }
   strcat(output_string, temp_str);
   strcat(output_string, del);
-   //ROLL
+  //ROLL
   if (conv_to_str(ROLL,1) > 5){
     overflw_flg = 1;
   }
@@ -971,13 +977,13 @@ void make_string(){
   strcat(output_string, temp_str);
   strcat(output_string, del);
   //String Complete! Ready to Transmit!
-  
+
 }
 
 int conv_to_str(float data, int prec){
-int mag= 0;
-int start = 0;
-int lop, len;
+  int mag= 0;
+  int start = 0;
+  int lop, len;
   temp_str[0] = '\0'; //Clear temp string
   if (data < 0){ //Negative numbers
     data = -data;
@@ -1004,23 +1010,3 @@ int lop, len;
   temp_str[len] = '\0';
   return len;
 }
-
-/*
-ARDUINO GOTO ---
-
-label:
-
-goto label; // sends program flow to the label
-
-Example Code
-
-for(byte r = 0; r < 255; r++){
-    for(byte g = 255; g > 0; g--){
-        for(byte b = 0; b < 255; b++){
-            if (analogRead(0) > 250){ goto bailout;}
-            // more statements ...
-        }
-    }
-}
-
-bailout:*/
