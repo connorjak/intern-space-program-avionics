@@ -30,7 +30,8 @@
 #define SERVO_BACK                 9 //Digital pin 9
 #define MPU_INT_PIN                2 //MPU interrupt pin
 #define TRX_INT_PIN                3 //tranciever interrupt pin
-#define PIXY_CS_PIN                8
+//#define PIXY_CS_PIN                8
+#define PARACHUTE_PIN              8
 #define SPI_PIN_MOSI              11
 #define SPI_PIN_MISO              12
 #define SPI_PIN_SCK               13
@@ -74,7 +75,7 @@
 #define MINTIME_2                0.0 //seconds
 #define MAXTIME_2          9000000.0 //seconds
 //3 SEPARATE
-#define CANARD_DEFLECT_2         0.0 //degrees //TODO check this
+#define CANARD_DEFLECT_3         0.0 //degrees //TODO check this
 #define ELEVATOR_DEFLECT_3      -1.0 //degrees
 #define AILERON_DEFLECT_3        0.0 //degrees
 #define MINTIME_3                0.0 //seconds
@@ -127,7 +128,7 @@
 
 // *** VARIABLES ***************************************************************
 
-Pixy pixy; // This is the main Pixy object
+//Pixy pixy; // This is the main Pixy object
 
 // *** IIST Sensors *** //TODO may exclude from glider
 bool boosterIIST = true;
@@ -265,10 +266,10 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   trxInterruptFlag = false;
-  collectData();
-  make_string();
+  //collectData();
+  //make_string();
   transmit_pi(output_string);
-  transmit_trx(output_string);
+  //transmit_trx(output_string);
 
   switch(STATE){
   //0 SCRUB
@@ -409,7 +410,8 @@ void loop() {
         // Sense Stable Flight Sensor Fusion
         //TODO:520 logic behind this
         if(false){
-          STATE = 5; // SEARCH
+          //STATE = 5; // SEARCH
+          STATE = 6; //
           firstTimeThroughState = true;
         }
 
@@ -427,7 +429,7 @@ void loop() {
       }
       break;
 
-    case 5: //5 SEARCH *********************************************************
+    case 5: //5 SEARCH (SKIPPED FOR NOW)*********************************************************
       if(firstTimeThroughState){
         pitchGoal = DEFAULT_PITCH_GOAL_5;
         rollGoal =  DEFAULT_ROLL_GOAL_5;
@@ -490,16 +492,18 @@ void loop() {
       if (AUTOSTATE && !trxInterruptFlag){
         // Lost Sight of Target Sensor Fusion
         //TODO:550 logic behind this
-        if(false){
-          STATE = 5; // SEARCH
-          firstTimeThroughState = true;
-        }
+        //if(false){
+        //  STATE = 5; // SEARCH
+        //  firstTimeThroughState = true;
+        //}
 
         // Timer Watchdog
         //TODO:660 make this
 
         // Telemetry Out of Norm Sensor Fusion
         //TODO:560 logic behind this
+        //- attitude out of normal range
+        //- large drop in altitude
         if(false){
           STATE = 4; // STABILIZE
           firstTimeThroughState = true;
@@ -529,7 +533,11 @@ void loop() {
 
       //TODO:480 following
       // Autopilot for Abort
-      // if (!explosiveSafetyOn && fireEjectionCharge == "FIRE"), fire it.
+      if (!explosiveSafetyOn && fireEjectionCharge == "FIRE")//, fire it.
+      {
+        //set parachute pin to high, firing the ejection charge
+        digitalWrite(PARACHUTE_PIN,HIGH);
+      }
       // Fast logging
 
       if (AUTOSTATE && !trxInterruptFlag){
@@ -547,12 +555,13 @@ void loop() {
 
     case 8: //8 LANDED *********************************************************
       if(firstTimeThroughState){
-        //TODO:740 things
+        //TODO: set servos to zero deflection
+        genericControl();
       }
 
       updateMET();
 
-      genericControl();
+
 
       //TODO:490 following
       // Some shutdown steps (especially for servos)
@@ -565,7 +574,7 @@ void loop() {
       break;
 
     default: // other than 0-8 *************************************************
-      //TODO:10 Debug Error: what the hell? how did I get to a nonexistant state?
+      //TODO: Debug Error: what the hell? how did I get to a nonexistant state?
 
       updateMET();
 
@@ -627,11 +636,12 @@ void initialize(){
   //enable interrupt attach
   attachInterrupt(digitalPinToInterrupt(TRX_INT_PIN), trxInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(MPU_INT_PIN), mpuInterrupt, RISING);
-  pinMode(RFM95_RST, OUTPUT);
-  digitalWrite(RFM95_RST, HIGH);
-  rf95.init(); //radio initialization
-  rf95.setFrequency(RF95_FREQ); //set frequency
-  rf95.setTxPower(TRX_POWER, false); //set output power
+  // RF init stuff commented out
+  //pinMode(RFM95_RST, OUTPUT);
+  //digitalWrite(RFM95_RST, HIGH);
+  //rf95.init(); //radio initialization
+  //rf95.setFrequency(RF95_FREQ); //set frequency
+  //rf95.setTxPower(TRX_POWER, false); //set output power
 
   //MPU Setup
     mpu.initialize();
@@ -669,7 +679,7 @@ void initialize(){
   servoBack.attach(SERVO_BACK);
 
   //Pixy Initialization
-  pixy.init();
+  //pixy.init(); (REMOVED PIXY)
 }
 
 
@@ -732,7 +742,8 @@ bool diagnostic(){
   //and changing of order in code does not affect
 
 
-  //Tranciever Handshake
+  // *** Tranciever Handshake
+  // (NOT DONE YET)
 
   // *** PI to nano handshake
   // send "handshake" to pi and wait to recieve "sure"
@@ -756,7 +767,7 @@ bool diagnostic(){
     error_sum = (error_sum << 1);
   }
 
-  //MPU check
+  // *** MPU check
   // verify MPU connection
   if(!mpu.testConnection()){
     transmit_trx("ERROR: IMU Connection Issues\n");
@@ -767,7 +778,7 @@ bool diagnostic(){
   }
   //Verify MPU acc and gryo readings
 
-  //Servo 'Dance'
+  // *** Servo 'Dance'
   servo_sweep();
   if (servoRightAngle != servoRight.read()){ //TODO:350 can we actually read from these servos?
     transmit_trx("ERROR: Right Servo Angle Error\n");
@@ -794,7 +805,7 @@ bool diagnostic(){
     error_sum = (error_sum << 1);
   }
 
-  //TODO: PIXY verification
+  //TODO: PIXY verification ()
 
 
   //Final Error Output
@@ -881,6 +892,38 @@ void transmit_pi(char* str){
 }
 
 
+int conv_to_str(float data, int prec){
+  int mag= 0;
+  int start = 0;
+  int lop, len;
+  temp_str[0] = '\0'; //Clear temp string
+  if (data < 0){ //Negative numbers
+    data = -data;
+    start = 1;
+  }
+  while (data > 10){ //Get power of 10 (above 0)
+    data = data/10;
+    mag = mag + 1;
+  }
+  len = mag+ prec + start + 2;
+  if (start == 1){
+    temp_str[0] = '-';
+  }
+  for(lop = start; lop < len; lop += 1){ //generate string
+    if (lop == mag + start + 1){
+      temp_str[lop] = '.';
+    }
+    else{
+      temp_str[lop] = (int)data + '0';
+      data = data - (int)data;
+      data = data*10;
+    }
+  }
+  temp_str[len] = '\0';
+  return len;
+}
+
+/*
 void make_string(){
   //TODO put in true global variables for 'data'
   //Definition of the packet sent to the Pi for data logging:
@@ -983,34 +1026,4 @@ void make_string(){
   //String Complete! Ready to Transmit!
 
 }
-
-int conv_to_str(float data, int prec){
-  int mag= 0;
-  int start = 0;
-  int lop, len;
-  temp_str[0] = '\0'; //Clear temp string
-  if (data < 0){ //Negative numbers
-    data = -data;
-    start = 1;
-  }
-  while (data > 10){ //Get power of 10 (above 0)
-    data = data/10;
-    mag = mag + 1;
-  }
-  len = mag+ prec + start + 2;
-  if (start == 1){
-    temp_str[0] = '-';
-  }
-  for(lop = start; lop < len; lop += 1){ //generate string
-    if (lop == mag + start + 1){
-      temp_str[lop] = '.';
-    }
-    else{
-      temp_str[lop] = (int)data + '0';
-      data = data - (int)data;
-      data = data*10;
-    }
-  }
-  temp_str[len] = '\0';
-  return len;
-}
+*/
