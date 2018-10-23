@@ -74,6 +74,7 @@
 #define MINTIME_2                0.0 //seconds
 #define MAXTIME_2          9000000.0 //seconds
 //3 SEPARATE
+#define CANARD_DEFLECT_2         0.0 //degrees //TODO check this
 #define ELEVATOR_DEFLECT_3      -1.0 //degrees
 #define AILERON_DEFLECT_3        0.0 //degrees
 #define MINTIME_3                0.0 //seconds
@@ -311,7 +312,7 @@ void loop() {
 
       // Set control surfaces to launch position
       canardWrite(canardDeflect);
-      //aileronWrite(aileronDeflect);
+      //aileronWrite(aileronDeflect); //mutually exclusive with canardWrite
       elevatorWrite(elevatorDeflect);
 
       if (AUTOSTATE && !trxInterruptFlag){
@@ -327,6 +328,7 @@ void loop() {
       if(firstTimeThroughState){
         aileronDeflect =  AILERON_DEFLECT_2;
         elevatorDeflect = ELEVATOR_DEFLECT_2;
+        canardDeflect = CANARD_DEFLECT_2;
       }
 
       updateMET();
@@ -346,8 +348,8 @@ void loop() {
         if(abs(accelForward)>SEP_ACCEL && altitude>MIN_SEP_ALTITUDE){
             //if(!boosterIIST) //if booster is not still there //TODO reenable if used
             //{
-            //    STATE = 3; // SEPARATE
-            //    firstTimeThroughState = true;
+                STATE = 3; // SEPARATE
+                firstTimeThroughState = true;
             //}
         }
 
@@ -361,6 +363,7 @@ void loop() {
       if(firstTimeThroughState){
         aileronDeflect =  AILERON_DEFLECT_3;
         elevatorDeflect = ELEVATOR_DEFLECT_3;
+        canardDeflect = CANARD_DEFLECT_3;
       }
 
       updateMET();
@@ -572,6 +575,7 @@ void loop() {
       }
       break;
   }
+  firstTimeThroughState = false;
 }
 
 
